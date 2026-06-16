@@ -1,0 +1,205 @@
+# =========================
+# Secrets & environment
+# =========================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.keystore
+*.jks
+service-account*.json
+gcp-key*.json
+firebase-adminsdk*.json
+credentials.json
+secrets/
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.env/
+env.bak/
+venv.bak/
+
+# Testing & coverage
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.cache/
+
+# Type checkers / linters
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
+# Jupyter
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+profile_default/
+ipython_config.py
+
+# =========================
+# Flutter / Dart
+# =========================
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/.pub-cache/
+frontend/.pub/
+frontend/build/
+frontend/.metadata
+frontend/pubspec.lock
+frontend/.fvm/
+frontend/coverage/
+
+# iOS
+frontend/ios/Pods/
+frontend/ios/.symlinks/
+frontend/ios/Flutter/Flutter.framework
+frontend/ios/Flutter/Flutter.podspec
+frontend/ios/Flutter/App.framework
+frontend/ios/Flutter/flutter_assets/
+frontend/ios/Flutter/Generated.xcconfig
+frontend/ios/Flutter/ephemeral/
+frontend/ios/Runner/GeneratedPluginRegistrant.*
+frontend/ios/Runner.xcworkspace/xcuserdata/
+frontend/ios/Runner.xcodeproj/xcuserdata/
+frontend/ios/Runner.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Android
+frontend/android/.gradle/
+frontend/android/captures/
+frontend/android/gradlew
+frontend/android/gradlew.bat
+frontend/android/local.properties
+frontend/android/**/GeneratedPluginRegistrant.java
+frontend/android/key.properties
+frontend/android/app/release/
+frontend/android/app/debug/
+frontend/android/app/profile/
+frontend/android/.idea/
+
+# Web
+frontend/web/build/
+
+# =========================
+# GCP / Firebase / Terraform
+# =========================
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebaserc.local
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+
+# Google Cloud
+.gcloudignore
+gcloud-config/
+
+# =========================
+# Node (tooling)
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# =========================
+# IDE / Editor
+# =========================
+.idea/
+.vscode/
+!.vscode/settings.json.example
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# =========================
+# OS
+# =========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# =========================
+# Logs & temp
+# =========================
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+*.bak
+*.orig
+
+# =========================
+# Project-specific
+# =========================
+data/raw/
+data/processed/
+data/*.csv
+!data/india_brands.csv
+data/*.parquet
+!data/sample/
+backend/local_storage/
+backend/.adk_cache/
+*.sqlite
+*.sqlite3
+*.db

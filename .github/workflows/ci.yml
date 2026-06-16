@@ -1,0 +1,146 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+jobs:
+  test-backend:
+    name: Backend — lint, type-check, tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: Lint (ruff)
+        working-directory: backend
+        run: ruff check .
+
+      - name: Type check (mypy)
+        working-directory: backend
+        run: mypy . --ignore-missing-imports --exclude tests/
+
+      - name: Run tests
+        working-directory: backend
+        env:
+          MEMORY_BACKEND: local
+          ENVIRONMENT: development
+          GEMINI_MODEL: gemini-2.0-flash
+          # Tests use InMemorySessionService — no GCP credentials needed
+        run: pytest tests/ -v --tb=short
+
+  test-frontend:
+    name: Frontend — Flutter analyze + test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.x"
+          channel: stable
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: frontend
+        run: flutter analyze
+
+      - name: Test
+        working-directory: frontend
+        run: flutter test
+
+  shellcheck:
+    name: Shell scripts — shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: ShellCheck
+        run: |
+          shellcheck scripts/setup_gcp.sh
+          shellcheck scripts/teardown_gcp.sh
+          shellcheck deploy/deploy.sh
+
+  deploy:
+    name: Deploy to GCP
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend, shellcheck]
+    if: >
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'workflow_call'
+    environment: production
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP (Workload Identity)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.x"
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Write production env file
+        env:
+          AGENT_RUNTIME_ID: ${{ secrets.AGENT_RUNTIME_ID }}
+          FIREBASE_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          cat > .env.production << EOF
+          GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }}
+          GOOGLE_CLOUD_LOCATION=us-central1
+          AGENT_RUNTIME_ID=${AGENT_RUNTIME_ID}
+          GCS_BUCKET=medication-companion-uploads
+          GEMINI_MODEL=gemini-2.0-flash
+          FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+          BIGQUERY_DATASET=medication_companion
+          MEMORY_BACKEND=vertex
+          ENVIRONMENT=production
+          LOG_LEVEL=INFO
+          EOF
+
+      - name: Deploy
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          chmod +x deploy/deploy.sh
+          GCP_PROJECT_ID=$GCP_PROJECT_ID ./deploy/deploy.sh --env production

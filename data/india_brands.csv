@@ -1,0 +1,307 @@
+brand_name,generic_name,components,drug_class
+Azee,azithromycin,,Antibiotic/Macrolide
+Zithromax,azithromycin,,Antibiotic/Macrolide
+Augmentin,amoxicillin+clavulanate,amoxicillin 500mg|clavulanate 125mg,Antibiotic/Penicillin+BLI
+Clavam,amoxicillin+clavulanate,amoxicillin 500mg|clavulanate 125mg,Antibiotic/Penicillin+BLI
+Ciplox,ciprofloxacin,,Antibiotic/Fluoroquinolone
+Cifran,ciprofloxacin,,Antibiotic/Fluoroquinolone
+Taxim,cefotaxime,,Antibiotic/Cephalosporin
+Monocef,ceftriaxone,,Antibiotic/Cephalosporin
+Amoxil,amoxicillin,,Antibiotic/Penicillin
+Novamox,amoxicillin,,Antibiotic/Penicillin
+Mox,amoxicillin,,Antibiotic/Penicillin
+Sporidex,cephalexin,,Antibiotic/Cephalosporin
+Klaricid,clarithromycin,,Antibiotic/Macrolide
+Biaxin,clarithromycin,,Antibiotic/Macrolide
+Norflox,norfloxacin,,Antibiotic/Fluoroquinolone
+Oflox,ofloxacin,,Antibiotic/Fluoroquinolone
+Vibramycin,doxycycline,,Antibiotic/Tetracycline
+Doxycycline,doxycycline,,Antibiotic/Tetracycline
+Clindac,clindamycin,,Antibiotic/Lincosamide
+Metronidazole,metronidazole,,Antibiotic/Nitroimidazole
+Flagyl,metronidazole,,Antibiotic/Nitroimidazole
+Rifagut,rifaximin,,Antibiotic/GI
+Pantocid DSR,pantoprazole+domperidone,pantoprazole 40mg|domperidone 10mg,PPI+Prokinetic
+Pan D,pantoprazole+domperidone,pantoprazole 40mg|domperidone 10mg,PPI+Prokinetic
+Omez D,omeprazole+domperidone,omeprazole 20mg|domperidone 10mg,PPI+Prokinetic
+Combiflam,ibuprofen+paracetamol,ibuprofen 400mg|paracetamol 325mg,NSAID+Analgesic
+Dolo 650,paracetamol,,Analgesic
+Cheston Cold,cetirizine+paracetamol+pseudoephedrine,cetirizine 5mg|paracetamol 500mg|pseudoephedrine 30mg,Antihistamine+Analgesic+Decongestant
+Sinarest,cetirizine+paracetamol+phenylephrine,cetirizine 5mg|paracetamol 500mg|phenylephrine 10mg,Antihistamine+Analgesic+Decongestant
+Wikoryl,cetirizine+paracetamol+phenylephrine,cetirizine 5mg|paracetamol 500mg|phenylephrine 10mg,Antihistamine+Analgesic+Decongestant
+Hifenac P,aceclofenac+paracetamol,aceclofenac 100mg|paracetamol 325mg,NSAID+Analgesic
+Nise MR,nimesulide+methocarbamol,nimesulide 100mg|methocarbamol 500mg,NSAID+Muscle Relaxant
+Sumo,nimesulide+paracetamol,nimesulide 100mg|paracetamol 325mg,NSAID+Analgesic
+Ultracet,tramadol+paracetamol,tramadol 37.5mg|paracetamol 325mg,Opioid+Analgesic
+Voglitor,voglibose+metformin,voglibose 0.2mg|metformin 500mg,Antidiabetic
+Janumet,sitagliptin+metformin,sitagliptin 50mg|metformin 500mg,Antidiabetic/DPP4+Biguanide
+Kombiglyze,saxagliptin+metformin,saxagliptin 5mg|metformin 1000mg,Antidiabetic/DPP4+Biguanide
+Glucovance,metformin+glibenclamide,metformin 500mg|glibenclamide 2.5mg,Antidiabetic
+Gluconorm PG,metformin+pioglitazone+glimepiride,metformin 500mg|pioglitazone 15mg|glimepiride 1mg,Antidiabetic
+Telma AM,telmisartan+amlodipine,telmisartan 40mg|amlodipine 5mg,ARB+CCB
+Stamlo Beta,amlodipine+atenolol,amlodipine 5mg|atenolol 50mg,CCB+Beta Blocker
+Amlopres AT,amlodipine+atenolol,amlodipine 5mg|atenolol 50mg,CCB+Beta Blocker
+Amlong AT,amlodipine+atenolol+telmisartan,amlodipine 5mg|atenolol 50mg|telmisartan 40mg,CCB+Beta Blocker+ARB
+Olsar AM,olmesartan+amlodipine,olmesartan 20mg|amlodipine 5mg,ARB+CCB
+Losar H,losartan+hydrochlorothiazide,losartan 50mg|hydrochlorothiazide 12.5mg,ARB+Diuretic
+Aldactone Plus,spironolactone+hydrochlorothiazide,spironolactone 25mg|hydrochlorothiazide 25mg,Diuretic
+Dytor Plus,torsemide+spironolactone,torsemide 10mg|spironolactone 50mg,Diuretic
+Rosave C,rosuvastatin+clopidogrel,rosuvastatin 10mg|clopidogrel 75mg,Statin+Antiplatelet
+Clopivas AP,clopidogrel+aspirin,clopidogrel 75mg|aspirin 75mg,Antiplatelet
+Deplatt A,clopidogrel+aspirin,clopidogrel 75mg|aspirin 150mg,Antiplatelet
+Norflox TZ,norfloxacin+tinidazole,norfloxacin 400mg|tinidazole 600mg,Antibiotic+Antiprotozoal
+Trika,diclofenac+serratiopeptidase,diclofenac 50mg|serratiopeptidase 10mg,NSAID+Enzyme
+Neuroforte,methylcobalamin+pyridoxine+nicotinamide,methylcobalamin 500mcg|pyridoxine 100mg|nicotinamide 100mg,Vitamin B Complex
+Shelcal,calcium carbonate+vitamin d3,calcium carbonate 500mg|vitamin d3 250IU,Calcium+Vitamin D
+Seroflo,fluticasone+salmeterol,fluticasone 250mcg|salmeterol 50mcg,ICS+LABA
+Foracort,budesonide+formoterol,budesonide 200mcg|formoterol 6mcg,ICS+LABA
+Deriphyllin,theophylline+etofylline,theophylline 23mg|etofylline 77mg,Bronchodilator
+Amlodip,amlodipine,,CCB
+Amlokind,amlodipine,,CCB
+Stamlo,amlodipine,,CCB
+Metolar,metoprolol,,Beta Blocker
+Metolar XR,metoprolol,,Beta Blocker
+Lopressor,metoprolol,,Beta Blocker
+Aten,atenolol,,Beta Blocker
+Tenormin,atenolol,,Beta Blocker
+Telma,telmisartan,,ARB
+Cardivas,carvedilol,,Beta Blocker
+Crestor,rosuvastatin,,Statin
+Rosulip,rosuvastatin,,Statin
+Rozavel,rosuvastatin,,Statin
+Atorva,atorvastatin,,Statin
+Lipitor,atorvastatin,,Statin
+Tonact,atorvastatin,,Statin
+Zocor,simvastatin,,Statin
+Ecosprin,aspirin,,Antiplatelet
+Aspirin,aspirin,,Antiplatelet
+Losar,losartan,,ARB
+Cozaar,losartan,,ARB
+Olmesar,olmesartan,,ARB
+Benicar,olmesartan,,ARB
+Diltia,diltiazem,,CCB
+Dilzem,diltiazem,,CCB
+Verapamil,verapamil,,CCB
+Isordil,isosorbide dinitrate,,Nitrate
+Sorbitrate,isosorbide dinitrate,,Nitrate
+Cordarone,amiodarone,,Antiarrhythmic
+Digoxin,digoxin,,Cardiac Glycoside
+Lasix,furosemide,,Diuretic
+Dytor,torsemide,,Diuretic
+Aldactone,spironolactone,,Diuretic/Aldosterone Antagonist
+Deplatt,clopidogrel,,Antiplatelet
+Plavix,clopidogrel,,Antiplatelet
+Warf,warfarin,,Anticoagulant
+Coumadin,warfarin,,Anticoagulant
+Acitrom,acenocoumarol,,Anticoagulant
+Xarelto,rivaroxaban,,Anticoagulant/NOAC
+Eliquis,apixaban,,Anticoagulant/NOAC
+Pradaxa,dabigatran,,Anticoagulant/NOAC
+Clexane,enoxaparin,,Anticoagulant/LMWH
+Persantin,dipyridamole,,Antiplatelet
+Brilinta,ticagrelor,,Antiplatelet
+Glycomet,metformin,,Antidiabetic/Biguanide
+Glucophage,metformin,,Antidiabetic/Biguanide
+Januvia,sitagliptin,,Antidiabetic/DPP4
+Galvus,vildagliptin,,Antidiabetic/DPP4
+Trajenta,linagliptin,,Antidiabetic/DPP4
+Invokana,canagliflozin,,Antidiabetic/SGLT2
+Dapa,dapagliflozin,,Antidiabetic/SGLT2
+Jardiance,empagliflozin,,Antidiabetic/SGLT2
+Glimestar,glimepiride,,Antidiabetic/Sulfonylurea
+Amaryl,glimepiride,,Antidiabetic/Sulfonylurea
+Glucotrol,glipizide,,Antidiabetic/Sulfonylurea
+Daonil,glibenclamide,,Antidiabetic/Sulfonylurea
+Pioz,pioglitazone,,Antidiabetic/Thiazolidinedione
+Actos,pioglitazone,,Antidiabetic/Thiazolidinedione
+Byetta,exenatide,,Antidiabetic/GLP1
+Victoza,liraglutide,,Antidiabetic/GLP1
+Ozempic,semaglutide,,Antidiabetic/GLP1
+Insulatard,insulin isophane,,Antidiabetic/Insulin
+Lantus,insulin glargine,,Antidiabetic/Insulin
+Novorapid,insulin aspart,,Antidiabetic/Insulin
+Voveran,diclofenac,,NSAID
+Voltaren,diclofenac,,NSAID
+Zerodol,aceclofenac,,NSAID
+Hifenac,aceclofenac,,NSAID
+Brufen,ibuprofen,,NSAID
+Advil,ibuprofen,,NSAID
+Nise,nimesulide,,NSAID
+Nimulid,nimesulide,,NSAID
+Calpol,paracetamol,,Analgesic
+Tylenol,paracetamol,,Analgesic
+Dolo,paracetamol,,Analgesic
+P 500,paracetamol,,Analgesic
+Meftal,mefenamic acid,,NSAID
+Ponstan,mefenamic acid,,NSAID
+Tramazac,tramadol,,Opioid Analgesic
+Naprosyn,naproxen,,NSAID
+Naproxen,naproxen,,NSAID
+Ketorol,ketorolac,,NSAID
+Toradol,ketorolac,,NSAID
+Celebrex,celecoxib,,NSAID/COX2
+Melosig,meloxicam,,NSAID/COX2
+Mobic,meloxicam,,NSAID/COX2
+Piroxicam,piroxicam,,NSAID
+Pantodac,pantoprazole,,PPI
+Pantocid,pantoprazole,,PPI
+Nexium,esomeprazole,,PPI
+Omeprazole,omeprazole,,PPI
+Omez,omeprazole,,PPI
+Rantac,ranitidine,,H2 Blocker
+Zinetac,ranitidine,,H2 Blocker
+Famtac,famotidine,,H2 Blocker
+Pepfiz,domperidone,,Prokinetic
+Domstal,domperidone,,Prokinetic
+Reglan,metoclopramide,,Prokinetic
+Dulcoflex,bisacodyl,,Laxative
+Ondansetron,ondansetron,,Antiemetic
+Zofer,ondansetron,,Antiemetic
+Avomine,promethazine,,Antihistamine/Antiemetic
+Dicyclomine,dicyclomine,,Antispasmodic
+Buscopan,hyoscine,,Antispasmodic
+Asthalin,salbutamol,,Bronchodilator/SABA
+Ventolin,salbutamol,,Bronchodilator/SABA
+Budecort,budesonide,,ICS
+Pulmicort,budesonide,,ICS
+Tiova,tiotropium,,LAMA
+Spiriva,tiotropium,,LAMA
+Montek,montelukast,,Leukotriene Modifier
+Singulair,montelukast,,Leukotriene Modifier
+Cetriz,cetirizine,,Antihistamine
+Zyrtec,cetirizine,,Antihistamine
+Allegra,fexofenadine,,Antihistamine
+Atarax,hydroxyzine,,Antihistamine
+Phenergan,promethazine,,Antihistamine
+Benadryl,diphenhydramine,,Antihistamine
+Aminophylline,aminophylline,,Bronchodilator
+Dexona,dexamethasone,,Corticosteroid
+Wysolone,prednisolone,,Corticosteroid
+Thyronorm,levothyroxine,,Thyroid Hormone
+Eltroxin,levothyroxine,,Thyroid Hormone
+Becosules,vitamin b complex,,Vitamin
+Zovirax,acyclovir,,Antiviral
+Valcivir,valacyclovir,,Antiviral
+Tamiflu,oseltamivir,,Antiviral
+Fluconazole,fluconazole,,Antifungal
+Candid,clotrimazole,,Antifungal
+Sporanox,itraconazole,,Antifungal
+Terbicip,terbinafine,,Antifungal
+Alprazolam,alprazolam,,Anxiolytic/Benzodiazepine
+Clonazepam,clonazepam,,Anxiolytic/Benzodiazepine
+Rivotril,clonazepam,,Anxiolytic/Benzodiazepine
+Xanax,alprazolam,,Anxiolytic/Benzodiazepine
+Restyl,alprazolam,,Anxiolytic/Benzodiazepine
+Trika,clonazepam,,Anxiolytic/Benzodiazepine
+Larpose,lorazepam,,Anxiolytic/Benzodiazepine
+Ativan,lorazepam,,Anxiolytic/Benzodiazepine
+Depran,escitalopram,,Antidepressant/SSRI
+Nexito,escitalopram,,Antidepressant/SSRI
+Rexipra,escitalopram,,Antidepressant/SSRI
+Sertraline,sertraline,,Antidepressant/SSRI
+Zoloft,sertraline,,Antidepressant/SSRI
+Fluoxetine,fluoxetine,,Antidepressant/SSRI
+Prozac,fluoxetine,,Antidepressant/SSRI
+Venlift,venlafaxine,,Antidepressant/SNRI
+Effexor,venlafaxine,,Antidepressant/SNRI
+Olanzapine,olanzapine,,Antipsychotic
+Oleanz,olanzapine,,Antipsychotic
+Risnia,risperidone,,Antipsychotic
+Sizodon,risperidone,,Antipsychotic
+Quetiapine,quetiapine,,Antipsychotic
+Seroquel,quetiapine,,Antipsychotic
+Eptoin,phenytoin,,Anticonvulsant
+Tegretol,carbamazepine,,Anticonvulsant
+Valproate,valproic acid,,Anticonvulsant
+Encorate,valproic acid,,Anticonvulsant
+Lamictal,lamotrigine,,Anticonvulsant
+Gabatop,gabapentin,,Anticonvulsant/Neuropathic Pain
+Lyrica,pregabalin,,Anticonvulsant/Neuropathic Pain
+Pregabalin,pregabalin,,Anticonvulsant/Neuropathic Pain
+Allopurinol,allopurinol,,Antigout
+Zyloric,allopurinol,,Antigout
+Colchicine,colchicine,,Antigout
+Comet,colchicine,,Antigout
+Febuxostat,febuxostat,,Antigout
+Feburic,febuxostat,,Antigout
+Folic acid,folic acid,,Vitamin B
+Folvite,folic acid,,Vitamin B
+Vitamin D3,cholecalciferol,,Vitamin D
+D3 Must,cholecalciferol,,Vitamin D
+Calcium Sandoz,calcium gluconate,,Calcium Supplement
+Iron Sucrose,iron sucrose,,Haematinic
+Fersolate,ferrous sulphate,,Haematinic
+Orofer,iron sucrose,,Haematinic
+Doxinate,doxylamine+pyridoxine,doxylamine 10mg|pyridoxine 10mg,Antiemetic/Pregnancy
+Doxinate OD,doxylamine+pyridoxine,doxylamine 20mg|pyridoxine 20mg,Antiemetic/Pregnancy
+Femilon,ethinylestradiol+desogestrel,ethinylestradiol 20mcg|desogestrel 150mcg,Oral Contraceptive
+Ovral,ethinylestradiol+levonorgestrel,ethinylestradiol 50mcg|levonorgestrel 250mcg,Oral Contraceptive
+Novelon,ethinylestradiol+desogestrel,ethinylestradiol 30mcg|desogestrel 150mcg,Oral Contraceptive
+Pregnil,chorionic gonadotropin,,Hormone
+Susten,progesterone,,Hormone
+Duphaston,dydrogesterone,,Hormone
+Primolut,norethisterone,,Hormone
+Danazol,danazol,,Hormone/Androgen
+Thyronorm 50,levothyroxine,,Thyroid Hormone
+Thyronorm 100,levothyroxine,,Thyroid Hormone
+Eltroxin 50,levothyroxine,,Thyroid Hormone
+Methimazole,methimazole,,Antithyroid
+Carbimazole,carbimazole,,Antithyroid
+Neomercazole,carbimazole,,Antithyroid
+Propylthiouracil,propylthiouracil,,Antithyroid
+Prednisolone,prednisolone,,Corticosteroid
+Dexamethasone,dexamethasone,,Corticosteroid
+Betnesol,betamethasone,,Corticosteroid
+Hydrocortisone,hydrocortisone,,Corticosteroid
+Methylprednisolone,methylprednisolone,,Corticosteroid
+Medrol,methylprednisolone,,Corticosteroid
+Omnacortil,prednisolone,,Corticosteroid
+Cetirizine,cetirizine,,Antihistamine
+Levocetirizine,levocetirizine,,Antihistamine
+Levocet,levocetirizine,,Antihistamine
+Montair,montelukast+levocetirizine,montelukast 10mg|levocetirizine 5mg,Leukotriene Modifier+Antihistamine
+Telekast L,montelukast+levocetirizine,montelukast 10mg|levocetirizine 5mg,Leukotriene Modifier+Antihistamine
+Doxofylline,doxofylline,,Bronchodilator
+Roxitid,roxithromycin,,Antibiotic/Macrolide
+Roxithromycin,roxithromycin,,Antibiotic/Macrolide
+Azithral,azithromycin,,Antibiotic/Macrolide
+Cefpodoxime,cefpodoxime,,Antibiotic/Cephalosporin
+Cepodem,cefpodoxime,,Antibiotic/Cephalosporin
+Cefixime,cefixime,,Antibiotic/Cephalosporin
+Suprax,cefixime,,Antibiotic/Cephalosporin
+Topcef,cefixime,,Antibiotic/Cephalosporin
+Meropenem,meropenem,,Antibiotic/Carbapenem
+Imipenem,imipenem,,Antibiotic/Carbapenem
+Linezolid,linezolid,,Antibiotic
+Zyvox,linezolid,,Antibiotic
+Vancomycin,vancomycin,,Antibiotic/Glycopeptide
+Teicoplanin,teicoplanin,,Antibiotic/Glycopeptide
+Colistin,colistin,,Antibiotic/Polymyxin
+Piperacillin,piperacillin+tazobactam,piperacillin 4g|tazobactam 500mg,Antibiotic/Penicillin+BLI
+Zosyn,piperacillin+tazobactam,piperacillin 4g|tazobactam 500mg,Antibiotic/Penicillin+BLI
+Tazobact,piperacillin+tazobactam,piperacillin 4g|tazobactam 500mg,Antibiotic/Penicillin+BLI
+Levaquin,levofloxacin,,Antibiotic/Fluoroquinolone
+Levofloxacin,levofloxacin,,Antibiotic/Fluoroquinolone
+Glevo,levofloxacin,,Antibiotic/Fluoroquinolone
+Moxifloxacin,moxifloxacin,,Antibiotic/Fluoroquinolone
+Avelox,moxifloxacin,,Antibiotic/Fluoroquinolone
+Isoniazid,isoniazid,,Antitubercular
+Rifampicin,rifampicin,,Antitubercular
+Pyrazinamide,pyrazinamide,,Antitubercular
+Ethambutol,ethambutol,,Antitubercular
+Akurit 4,isoniazid+rifampicin+pyrazinamide+ethambutol,isoniazid 75mg|rifampicin 150mg|pyrazinamide 400mg|ethambutol 275mg,Antitubercular FDC
+Lupercin,atorvastatin+aspirin+ramipril,atorvastatin 10mg|aspirin 75mg|ramipril 2.5mg,Statin+Antiplatelet+ACEi
+Cardace,ramipril,,ACE Inhibitor
+Ramipril,ramipril,,ACE Inhibitor
+Enalapril,enalapril,,ACE Inhibitor
+Envas,enalapril,,ACE Inhibitor
+Lisinopril,lisinopril,,ACE Inhibitor
+Lisinaph,lisinopril,,ACE Inhibitor
+Perindopril,perindopril,,ACE Inhibitor
+Coversyl,perindopril,,ACE Inhibitor
+Candesar,candesartan,,ARB
+Atacand,candesartan,,ARB
+Valsartan,valsartan,,ARB
+Diovan,valsartan,,ARB
+Irbesartan,irbesartan,,ARB
+Avapro,irbesartan,,ARB

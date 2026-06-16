@@ -1,0 +1,137 @@
+---
+name: medication-companion
+description: Domain and code rules for Medication Companion. Apply to ALL files in this project without exception.
+globs: ["**/*.py", "**/*.dart", "**/*.sh", "**/*.yaml", "**/*.yml"]
+---
+
+# Medication Companion — Cursor Rules
+
+This file is the primary specification for all code generated in this project.
+It was written BEFORE any code — every agent, tool, and API was generated with these rules active.
+Do not override these rules with prompts. If a prompt conflicts with a rule here, the rule wins.
+
+---
+
+## 1. What this project is (and is not)
+
+A multi-agent pipeline that helps patients in India understand prescriptions and stay safe across visits.
+It is NOT a medical device, NOT a diagnostic tool, NOT a prescription system.
+Every patient-facing output must direct the patient back to their doctor or pharmacist.
+
+---
+
+## 2. Safety language — enforced in all agent outputs
+
+- NEVER use diagnostic language: "you have", "this indicates", "this means you have", "this suggests you have"
+- NEVER recommend dosage changes, dose timing, or stopping a medication
+- Every patient-facing string MUST end with a consult-your-doctor redirect
+- Severity values are EXACTLY: `HIGH`, `MODERATE`, `LOW`, `INFO`, `NONE` — no others, no variants
+- `HIGH` means "worth discussing urgently with your doctor" — NOT "dangerous" or "life-threatening"
+- `LOW` and `INFO` must still include the consult redirect — never omit it
+- The redirect phrase is always: "Please discuss this with your doctor or pharmacist before making any changes."
+
+---
+
+## 3. Interaction checking scope
+
+- Check interactions ONLY for drugs confirmed in the resolved drug list (from Agent 2)
+- Do NOT speculate about interactions with drugs not in the list
+- If interaction data is unavailable for a pair: output `INFO` + "Insufficient data to assess interaction between {drug_a} and {drug_b}."
+- NEVER invent drug names in explanations — output must only reference `resolved_drugs`
+- Do not infer or guess at drug names from OCR ambiguity — if confidence < 0.75, trigger Gate1Reject
+
+---
+
+## 4. Agent boundaries — no agent may cross these
+
+Each agent has a single responsibility. Violations are bugs, not shortcuts.
+
+| Agent | Responsibility | Forbidden |
+|-------|---------------|-----------|
+| Agent 1 (Reader) | Image extraction only | No resolution, no safety checking |
+| Agent 2 (Resolver) | Resolution and EXISTING/NEW tagging only | No safety checking |
+| Agent 3 (Safety) | Safety checking only | No explanation generation |
+| Agent 4 (Education) | Explanation generation only | No new safety checking, no drug resolution |
+| Agent 5 (Localisation) | Localisation and audio only | No content changes to explanation text |
+| Guardrails | Run as callbacks | Never inside agent logic |
+
+---
+
+## 5. Memory rules
+
+- `patient_id` is ALWAYS the Firebase UID extracted from the verified ID token — never trust client-provided IDs
+- Memory writes occur ONLY after Agent 4 completes successfully (`after_agent_callback`)
+- Memory stores ONLY: resolved generic drug names, visit timestamp, severity summary
+- Memory NEVER stores: image data, clinical notes, diagnosis text, raw LLM output, PII beyond the patient_id
+
+---
+
+## 6. Code rules — Python backend
+
+```python
+# All agents: google.adk LlmAgent — never use raw Gemini API calls directly
+# All tools: google.adk FunctionTool with complete type hints and docstrings
+# All inter-agent data: Pydantic BaseModel — never plain dicts across boundaries
+# Async throughout: async def, await — no blocking calls in agent handlers
+# Structured logging: google.cloud.logging — never print() in production code paths
+# MEMORY_BACKEND env var controls backend: "local" (dev/tests) or "vertex" (production)
+# Error handling: every tool call wrapped in try/except with structured error return
+# Never hardcode: project IDs, bucket names, API keys, model names — always from env vars
+```
+
+---
+
+## 7. Code rules — Dart/Flutter frontend
+
+```dart
+// Firebase Auth JWT attached to every API request via interceptor — never skip this
+// Never store prescription images in local storage — always stream directly to API
+// Network timeout: 60 seconds (pipeline can take 15-20s under load)
+// 422 response → retake prescription photo flow
+// 401 response → re-authentication flow
+// Never use HTML <form> elements — use Flutter form widgets
+// No patient data in URL parameters
+```
+
+---
+
+## 8. Security rules
+
+- Input guardrail runs BEFORE Agent 1 on every request — never skip
+- Output guardrail runs AFTER Agent 4 before returning to client — never skip
+- Prompt injection patterns in input → reject with HTTP 400, do not process
+- Diagnostic questions in input ("do I have", "am I sick") → reject with HTTP 400 + "consult your doctor" message
+- Images that contain no detectable drug names → reject with HTTP 422 + retake instruction
+- All Cloud Run services deployed with `--no-allow-unauthenticated`
+
+---
+
+## 9. Test rules
+
+- Every FunctionTool must have a unit test with a mock external call
+- Agent boundary tests: Agent N must not call Agent N±1's tools
+- Guardrail tests: at least 3 injection attempts, 3 diagnostic question attempts
+- Memory tests: verify patient_id isolation between patients
+- All tests use `InMemorySessionService` — no GCP credentials in tests
+
+---
+
+## 10. Deployment rules
+
+- Never deploy `:latest` tag — always use git-sha + timestamp tag
+- Both Cloud Run services use the same service account with least-privilege roles
+- Environment variables via Cloud Run `--set-env-vars` — never bake secrets into images
+- Health endpoint `GET /health` on both services — required for Cloud Run health checks
+- `ENVIRONMENT=production` disables Swagger UI
+
+---
+
+## 11. Indian drug name handling
+
+Indian brand names are poorly covered by RxNav. Always:
+1. Try RxNav API first
+2. Fall back to `data/india_brands.csv` 
+3. If still unresolved, tag as `UNRESOLVED` — never guess
+
+Fixed-dose combinations (FDCs) are common in India and MUST be split before interaction checking.
+Always call `combo_splitter` tool after `drug_lookup` for any resolved drug.
