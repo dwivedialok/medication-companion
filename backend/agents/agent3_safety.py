@@ -13,9 +13,10 @@ Demonstrates Day 3 (Context Engineering / Memory):
 - Reads from VertexAiMemoryBankService (long-term, cross-visit)
 - Reads session state for current-visit resolved drugs (short-term)
 """
-from google.adk import LlmAgent
+from google.adk.agents import LlmAgent
 from pydantic import BaseModel, Field
 
+from llm_models import MEDICATION_SAFETY_LLM
 from memory.memory_service import MemoryServiceWrapper
 from tools.patient_memory import create_patient_history_tool
 
@@ -50,8 +51,9 @@ Rules:
 - Check NEW drugs against each other AND against EXISTING drugs from patient memory
 - Do NOT generate explanations, summaries, or patient-facing text
 - Severity levels: HIGH, MODERATE, LOW, INFO, NONE — no others
-- If interaction data is unavailable for a pair: output INFO +
-  "Insufficient data to assess interaction between {drug_a} and {drug_b}."
+- If interaction data is unavailable for a pair: output INFO severity with mechanism
+  "Insufficient data to assess interaction between <drug_a> and <drug_b>."
+  (substitute the actual drug names for <drug_a> and <drug_b>)
 - NEVER invent drug names or interactions not supported by pharmacological knowledge
 - Output ONLY a SafetyOutput JSON object
 """
@@ -61,7 +63,7 @@ def create_safety_agent(memory_service: MemoryServiceWrapper) -> LlmAgent:
     """Create and return the Safety agent."""
     return LlmAgent(
         name="medication_safety",
-        model="gemini-2.0-flash",
+        model=MEDICATION_SAFETY_LLM,
         instruction=SAFETY_INSTRUCTION,
         tools=[create_patient_history_tool(memory_service)],
         output_schema=SafetyOutput,

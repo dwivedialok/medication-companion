@@ -9,9 +9,10 @@ Demonstrates Day 2 (Tools & Interoperability):
 - FunctionTools for external API calls (RxNav) and local lookup (combo_splitter)
 - The agent decides autonomously which tools to call based on the drug name
 """
-from google.adk import LlmAgent
+from google.adk.agents import LlmAgent
 from pydantic import BaseModel, Field
 
+from llm_models import DRUG_NAME_RESOLVER_LLM
 from tools.drug_lookup import drug_lookup_tool
 from tools.combo_splitter import combo_splitter_tool
 
@@ -57,7 +58,7 @@ def create_resolver_agent() -> LlmAgent:
     """Create and return the Medication Resolver agent."""
     return LlmAgent(
         name="medication_resolver",
-        model="gemini-2.0-flash",
+        model=DRUG_NAME_RESOLVER_LLM,
         instruction=RESOLVER_INSTRUCTION,
         tools=[drug_lookup_tool, combo_splitter_tool],
         output_schema=ResolverOutput,

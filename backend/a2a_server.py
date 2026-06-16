@@ -1,68 +1,167 @@
 """
 backend/a2a_server.py
-Agent 5 A2A service entry point.
+Agent 5 A2A service — plain FastAPI (ADK 2.2.0 has no to_a2a helper).
 
-Agent 5 (Localisation + Audio) is deployed as a SEPARATE Cloud Run service
-communicating via the A2A protocol. This separation demonstrates Day 2:
-two independently deployable agents communicating via standard protocol.
+Endpoints:
+  POST /a2a                     — run localisation + TTS, return translated text + audio URL
+  GET  /.well-known/agent.json  — A2A Agent Card
+  GET  /health                  — Cloud Run health check
 
-Agent 4 sends the English explanation here; Agent 5:
-1. Translates to the patient's language (hi-IN, ta-IN, te-IN, bn-IN, en-IN)
-2. Generates audio via GCP Text-to-Speech
-3. Uploads MP3 to Cloud Storage
-4. Returns signed URL
-
-The Agent Card at /.well-known/agent.json describes Agent 5's capabilities
-in the A2A standard format.
+The main service (main.py) POSTs to /a2a after the Agents 1-4 pipeline completes.
+Agent 5 translates the English explanation and generates audio via GCP TTS.
 """
-import os
 import logging
+import os
+import uuid
 
-from fastapi import FastAPI
+from dotenv import load_dotenv
+from fastapi import FastAPI, Request, status
+
+load_dotenv()  # no-op in production; loads .env for local development
 from fastapi.responses import JSONResponse
+from google.adk.agents import SequentialAgent
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from google.genai import types
+from pydantic import BaseModel
 
-from google.adk import LlmAgent
-from google.adk.a2a import to_a2a
-
-from tools.tts import tts_tool
+from agents.agent5_localisation import LocalisationOutput, create_localisation_agent
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+APP_NAME = "medication-companion-a2a"
+
+if ENVIRONMENT == "production":
+    import google.cloud.logging
+    google.cloud.logging.Client().setup_logging()
+else:
+    logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+
 logger = logging.getLogger(__name__)
 
+# ── Agent 5 runner (stateless — fresh InMemorySessionService per process) ─────
 
-# ── Agent 5 definition ────────────────────────────────────────────────────────
+localisation_agent = create_localisation_agent()
 
-LOCALISATION_INSTRUCTION = """
-You are a localisation and audio specialist. Your job is to:
-1. Translate the English explanation text into the target_language
-2. Generate audio using the tts tool
-3. Return the GCS signed URL and translated text
-
-Rules:
-- Do NOT change the meaning of the explanation text — translate only
-- Do NOT remove or alter the consult-your-doctor disclaimer
-- Preserve severity tone in translation
-- Supported languages: hi-IN, ta-IN, te-IN, bn-IN, en-IN
-"""
-
-localisation_agent = LlmAgent(
-    name="localisation_audio",
-    model="gemini-2.0-flash",
-    instruction=LOCALISATION_INSTRUCTION,
-    tools=[tts_tool],
-    description=(
-        "Translates prescription explanations and generates audio in Hindi, Tamil, "
-        "Telugu, Bengali, and English. Deployed as an A2A service."
-    ),
+# SequentialAgent wrapping a single agent works fine and gives us callback hooks
+a2a_root = SequentialAgent(
+    name="a2a_pipeline",
+    sub_agents=[localisation_agent],
+    description="A2A wrapper for localisation_audio agent.",
 )
 
+_session_service = InMemorySessionService()
 
-# ── Mount as A2A-compliant FastAPI app ────────────────────────────────────────
+a2a_runner = Runner(
+    agent=a2a_root,
+    app_name=APP_NAME,
+    session_service=_session_service,
+)
+
+# ── FastAPI ───────────────────────────────────────────────────────────────────
+
 docs_url = None if ENVIRONMENT == "production" else "/docs"
-app = to_a2a(localisation_agent, docs_url=docs_url)
+
+app = FastAPI(
+    title="Medication Companion — A2A Service",
+    version="1.0.0",
+    docs_url=docs_url,
+    redoc_url=None,
+)
+
+# ── A2A request/response schemas ──────────────────────────────────────────────
+
+class A2ARequest(BaseModel):
+    explanation_text: str
+    target_language: str = "en-IN"
+    severity: str = "NONE"
 
 
-# ── Health endpoint ───────────────────────────────────────────────────────────
+class A2AResponse(BaseModel):
+    translated_text: str
+    audio_url: str
+    language_code: str = ""
+
+
+# ── POST /a2a ─────────────────────────────────────────────────────────────────
+
+@app.post("/a2a", response_model=A2AResponse)
+async def localise(body: A2ARequest, request: Request):
+    user_id = "a2a-system"
+    session = await _session_service.create_session(app_name=APP_NAME, user_id=user_id)
+    session_id = session.id
+
+    prompt = (
+        f"explanation_text: {body.explanation_text}\n"
+        f"target_language: {body.target_language}\n"
+        f"severity: {body.severity}\n"
+        "Please localise and generate audio."
+    )
+
+    new_message = types.Content(
+        role="user",
+        parts=[types.Part.from_text(text=prompt)],
+    )
+
+    localisation_output: LocalisationOutput | None = None
+    async for event in a2a_runner.run_async(
+        user_id=user_id,
+        session_id=session_id,
+        new_message=new_message,
+    ):
+        output = getattr(event, "output", None)
+        if isinstance(output, LocalisationOutput):
+            localisation_output = output
+        elif isinstance(output, dict) and "translated_text" in output:
+            try:
+                localisation_output = LocalisationOutput.model_validate(output)
+            except Exception:
+                pass
+
+    if localisation_output is None:
+        logger.error("No LocalisationOutput from agent (session=%s)", session_id)
+        # Graceful fallback: return original text with no audio
+        return A2AResponse(
+            translated_text=body.explanation_text,
+            audio_url="",
+            language_code=body.target_language,
+        )
+
+    return A2AResponse(
+        translated_text=localisation_output.translated_text,
+        audio_url=localisation_output.audio_url,
+        language_code=localisation_output.language_code or body.target_language,
+    )
+
+
+# ── Agent Card ────────────────────────────────────────────────────────────────
+
+_AGENT_CARD = {
+    "schemaVersion": "1.0",
+    "name": "medication-companion-localisation",
+    "displayName": "Medication Companion — Localisation Agent",
+    "description": (
+        "Translates medication explanations to Hindi, Tamil, Telugu, Bengali, "
+        "or English and generates Text-to-Speech audio."
+    ),
+    "version": "1.0.0",
+    "capabilities": ["translation", "text-to-speech"],
+    "inputModes": ["text"],
+    "outputModes": ["text", "audio"],
+    "endpoints": {
+        "run": "/a2a",
+        "health": "/health",
+    },
+    "supportedLanguages": ["hi-IN", "ta-IN", "te-IN", "bn-IN", "en-IN"],
+}
+
+
+@app.get("/.well-known/agent.json")
+async def agent_card() -> dict:
+    return _AGENT_CARD
+
+
+# ── Health ────────────────────────────────────────────────────────────────────
+
 @app.get("/health")
 async def health() -> dict:
     return {
@@ -70,6 +169,17 @@ async def health() -> dict:
         "service": "medication-companion-a2a",
         "environment": ENVIRONMENT,
     }
+
+
+# ── Global error handler ──────────────────────────────────────────────────────
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.error("Unhandled exception in A2A service", exc_info=exc)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"error": "internal_error", "message": "Localisation failed. Please try again."},
+    )
 
 
 logger.info("Medication Companion A2A service started (env=%s)", ENVIRONMENT)

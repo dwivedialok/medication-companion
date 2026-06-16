@@ -20,6 +20,8 @@ import google.generativeai as genai
 from google.cloud import bigquery
 from pydantic import BaseModel
 
+from llm_models import LLM_JUDGE_MODEL
+
 logger = logging.getLogger(__name__)
 
 
@@ -75,7 +77,7 @@ async def score_pipeline_output(
     Score the pipeline output using LLM-as-Judge.
     Returns EvalScore. Never raises — returns zeros with flag on failure.
     """
-    judge_model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    judge_model = LLM_JUDGE_MODEL
 
     try:
         model = genai.GenerativeModel(judge_model)

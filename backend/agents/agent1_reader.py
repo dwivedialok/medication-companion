@@ -10,9 +10,11 @@ This agent demonstrates the core agentic behaviour from Day 1:
 a single LLM call would accept any image; this agent evaluates confidence
 and makes a branching decision autonomously.
 """
-from google.adk import LlmAgent
+from google.adk.agents import LlmAgent
 from google.adk.tools import FunctionTool
 from pydantic import BaseModel, Field
+
+from llm_models import PRESCRIPTION_IMAGE_READER_LLM
 
 
 # ── Data contracts ────────────────────────────────────────────────────────────
@@ -62,7 +64,7 @@ def create_reader_agent() -> LlmAgent:
     """Create and return the Prescription Reader agent."""
     return LlmAgent(
         name="prescription_reader",
-        model="gemini-2.0-flash",
+        model=PRESCRIPTION_IMAGE_READER_LLM,
         instruction=READER_INSTRUCTION,
         output_schema=ReaderOutput,
         description=(

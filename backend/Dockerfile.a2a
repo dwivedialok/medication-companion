@@ -1,1 +1,22 @@
-# TODO: Agent 5 A2A service Dockerfile
+# backend/Dockerfile.a2a — Agent 5 A2A service (Localisation + Audio)
+#
+# Build from the PROJECT ROOT (not from backend/):
+#   docker build -f backend/Dockerfile.a2a -t medication-companion-a2a .
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY backend/requirements.txt requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY backend/ .
+
+# A2A service also needs the drug CSV (tools/combo_splitter.py is imported transitively)
+COPY data/ data/
+
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 8081
+
+CMD ["uvicorn", "a2a_server:app", "--host", "0.0.0.0", "--port", "8081"]

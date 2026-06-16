@@ -75,7 +75,7 @@ docker build \
   --tag "$A2A_IMAGE" \
   --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --build-arg GIT_SHA="$GIT_SHA" \
-  ./backend
+  .
 docker push "$A2A_IMAGE"
 echo "✓ A2A image pushed: $A2A_IMAGE"
 
@@ -91,7 +91,7 @@ gcloud run deploy medication-companion-a2a \
   --min-instances=0 \
   --max-instances=10 \
   --timeout=120 \
-  --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION},GCS_BUCKET=${GCS_BUCKET},GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash},ENVIRONMENT=${ENV},LOG_LEVEL=INFO" \
+  --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION},GCS_BUCKET=${GCS_BUCKET},GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.5-flash},ENVIRONMENT=${ENV},LOG_LEVEL=INFO" \
   --labels="app=medication-companion,component=a2a,git-sha=${GIT_SHA}" \
   --quiet
 
@@ -107,7 +107,7 @@ docker build \
   --tag "$MAIN_IMAGE" \
   --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --build-arg GIT_SHA="$GIT_SHA" \
-  ./backend
+  .
 docker push "$MAIN_IMAGE"
 echo "✓ Main image pushed: $MAIN_IMAGE"
 
@@ -124,7 +124,7 @@ gcloud run deploy medication-companion \
   --max-instances=20 \
   --timeout=120 \
   --concurrency=10 \
-  --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION},AGENT_RUNTIME_ID=${AGENT_RUNTIME_ID},GCS_BUCKET=${GCS_BUCKET},A2A_AGENT5_URL=${A2A_URL},GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash},FIREBASE_PROJECT_ID=${PROJECT_ID},BIGQUERY_DATASET=medication_companion,MEMORY_BACKEND=vertex,ENVIRONMENT=${ENV},LOG_LEVEL=INFO" \
+  --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION},AGENT_RUNTIME_ID=${AGENT_RUNTIME_ID},GCS_BUCKET=${GCS_BUCKET},A2A_AGENT5_URL=${A2A_URL},GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.5-flash},FIREBASE_PROJECT_ID=${PROJECT_ID},BIGQUERY_DATASET=medication_companion,MEMORY_BACKEND=vertex,ENVIRONMENT=${ENV},LOG_LEVEL=INFO" \
   --labels="app=medication-companion,component=main,git-sha=${GIT_SHA}" \
   --quiet
 

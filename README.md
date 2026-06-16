@@ -82,7 +82,7 @@ cd backend
 pip install -r requirements.txt
 
 # Run with in-memory session/memory backend (no GCP needed)
-MEMORY_BACKEND=local GEMINI_MODEL=gemini-2.0-flash python -m uvicorn main:app --reload
+MEMORY_BACKEND=local GEMINI_MODEL=gemini-3.5-flash python -m uvicorn main:app --reload
 ```
 
 ### Kaggle notebook (demo)

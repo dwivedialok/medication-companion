@@ -39,7 +39,7 @@ jobs:
         env:
           MEMORY_BACKEND: local
           ENVIRONMENT: development
-          GEMINI_MODEL: gemini-2.0-flash
+          GEMINI_MODEL: gemini-3.5-flash
           # Tests use InMemorySessionService — no GCP credentials needed
         run: pytest tests/ -v --tb=short
 
@@ -130,7 +130,7 @@ jobs:
           GOOGLE_CLOUD_LOCATION=us-central1
           AGENT_RUNTIME_ID=${AGENT_RUNTIME_ID}
           GCS_BUCKET=medication-companion-uploads
-          GEMINI_MODEL=gemini-2.0-flash
+          GEMINI_MODEL=gemini-3.5-flash
           FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
           BIGQUERY_DATASET=medication_companion
           MEMORY_BACKEND=vertex

@@ -303,7 +303,7 @@ Two Cloud Run services — the main pipeline (Agents 1–4 + FastAPI) and the A2
 ### Agent pipeline flow
 
 ```
-POST /agent/run  (multipart/form-data: image file)
+POST /precription  (multipart/form-data: image file)
   → Firebase ID token validated (middleware) → patient_id = uid
   → image uploaded to GCS (returns gs:// URI)
   → Agent 1: image → raw drug names + Gate 1 decision
