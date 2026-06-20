@@ -26,15 +26,11 @@ from google.adk.agents import SequentialAgent
 from google.adk.runners import Runner
 from google.genai import types
 
-from agents.agent1_reader import create_reader_agent
-from agents.agent2_resolver import create_resolver_agent
-from agents.agent3_safety import create_safety_agent
-from agents.agent4_education import EducationOutput, create_education_agent
-from memory.memory_service import create_memory_service
+from agent import root_agent
+from agents.agent4_education import EducationOutput
 from memory.session_service import create_session_service
 from pipeline_output import find_education_output, find_gate1_reject, log_event_authors
 from schemas import InteractionFinding, PrescriptionResult, ResolvedDrug
-from tools.guardrails import input_guardrail_callback, output_guardrail_callback
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -55,20 +51,6 @@ logger = logging.getLogger(__name__)
 # ── Agent pipeline ────────────────────────────────────────────────────────────
 
 session_service = create_session_service()
-memory_service = create_memory_service()
-
-reader_agent = create_reader_agent()
-resolver_agent = create_resolver_agent()
-safety_agent = create_safety_agent(memory_service=memory_service)
-education_agent = create_education_agent(memory_service=memory_service)
-
-root_agent = SequentialAgent(
-    name="medication_companion",
-    sub_agents=[reader_agent, resolver_agent, safety_agent, education_agent],
-    before_agent_callback=input_guardrail_callback,
-    after_agent_callback=output_guardrail_callback,
-    description="Prescription pipeline: read → resolve → safety → education.",
-)
 
 runner = Runner(
     agent=root_agent,

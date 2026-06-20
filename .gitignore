@@ -203,3 +203,6 @@ backend/.adk_cache/
 *.sqlite
 *.sqlite3
 *.db
+# Drug lookup index — built by scripts/build_drug_index.py, ~60 MB.
+# Committed so backend runs out-of-the-box; rebuild after CSV updates.
+!data/drugs.db

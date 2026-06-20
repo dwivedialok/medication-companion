@@ -1,0 +1,14 @@
+{
+  "eval_cases": [
+    {
+      "eval_case_id": "blurry_or_invalid_image",
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {"text": "Please analyse this prescription image."},
+          {"inline_data": {"mime_type": "image/gif", "data": "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"}}
+        ]
+      }
+    }
+  ]
+}
