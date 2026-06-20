@@ -11,8 +11,8 @@ from llm_models import (
 )
 
 
-def test_default_model_is_gemini_3_5_flash():
-    assert DEFAULT_GEMINI_MODEL == "gemini-3.5-flash"
+def test_default_model_is_gemini_3_1_flash_lite():
+    assert DEFAULT_GEMINI_MODEL == "gemini-3.1-flash-lite"
 
 
 def test_all_agent_constants_use_default_when_no_env(monkeypatch):
@@ -32,12 +32,12 @@ def test_all_agent_constants_use_default_when_no_env(monkeypatch):
 
     importlib.reload(llm_models)
 
-    assert llm_models.PRESCRIPTION_IMAGE_READER_LLM == "gemini-3.5-flash"
-    assert llm_models.DRUG_NAME_RESOLVER_LLM == "gemini-3.5-flash"
-    assert llm_models.MEDICATION_SAFETY_LLM == "gemini-3.5-flash"
-    assert llm_models.PATIENT_EDUCATION_LLM == "gemini-3.5-flash"
-    assert llm_models.LOCALISATION_AUDIO_LLM == "gemini-3.5-flash"
-    assert llm_models.LLM_JUDGE_MODEL == "gemini-3.5-flash"
+    assert llm_models.PRESCRIPTION_IMAGE_READER_LLM == "gemini-3.1-flash-lite"
+    assert llm_models.DRUG_NAME_RESOLVER_LLM == "gemini-3.1-flash-lite"
+    assert llm_models.MEDICATION_SAFETY_LLM == "gemini-3.1-flash-lite"
+    assert llm_models.PATIENT_EDUCATION_LLM == "gemini-3.1-flash-lite"
+    assert llm_models.LOCALISATION_AUDIO_LLM == "gemini-3.1-flash-lite"
+    assert llm_models.LLM_JUDGE_MODEL == "gemini-3.1-flash-lite"
 
 
 def test_agent_model_registry_has_five_agents():

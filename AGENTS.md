@@ -110,3 +110,14 @@ pytest tests/
   add the source iterator to `scripts/build_drug_index.py` and rebuild `data/drugs.db`
 - Do not check raw Kaggle CSVs into git — only the curated `india_brands.csv`
   and the built `drugs.db` are committed
+
+---
+
+## Known follow-ups (post-capstone)
+
+- **Migrate `SequentialAgent` → `Workflow` (graph DAG).** `google-adk` 2.3.0
+  deprecates `SequentialAgent`; the new graph-based `Workflow` API (`Node`,
+  `Edge`, `JoinNode`, `START`) is the long-term replacement but is a real
+  refactor — callback model differs and the Agent Runtime `AdkApp` wrapper
+  must be re-validated. Deprecation warning is filtered in `pyproject.toml`
+  until then.

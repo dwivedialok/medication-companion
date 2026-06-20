@@ -1,13 +1,13 @@
-name: "medication-companion"
-acli_version: "0.5.0"
-agent_directory: "backend"
-region: "us-central1"
-base_template: "adk"
-language: "python"
+name: medication-companion
+acli_version: 0.5.0
+agent_directory: backend
+region: us-central1
+base_template: adk
+language: python
 create_params:
-  deployment_target: "cloud_run"
-  session_type: "agent_platform_sessions"
-  cicd_runner: "github_actions"
+  deployment_target: agent_runtime
+  cicd_runner: github_actions
   include_data_ingestion: false
-  datastore: "none"
-  agent_guidance_filename: "AGENTS.md"
+  datastore: none
+  agent_guidance_filename: AGENTS.md
+  agent_directory: backend

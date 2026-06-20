@@ -1,6 +1,10 @@
 """
-Unit tests for backend/memory/session_service.py and memory/memory_service.py.
-Run from backend/ dir: pytest tests/test_memory_services.py -v
+Unit tests for backend/memory/memory_service.py.
+
+Session services are no longer constructed locally — Agent Runtime provides
+`VertexAiSessionService` natively (see deploy/legacy_cloud_run/session_service.py
+for the archived Cloud Run factory).
+
 All tests use MEMORY_BACKEND=local (no GCP credentials required).
 """
 import os
@@ -9,28 +13,6 @@ import pytest
 
 os.environ.setdefault("MEMORY_BACKEND", "local")
 os.environ.setdefault("ENVIRONMENT", "local")
-
-
-# ── Session service factory ───────────────────────────────────────────────────
-
-def test_session_service_factory_returns_in_memory_in_local_mode(monkeypatch):
-    monkeypatch.setenv("MEMORY_BACKEND", "local")
-    from memory.session_service import create_session_service
-    from google.adk.sessions import InMemorySessionService
-
-    svc = create_session_service()
-    assert isinstance(svc, InMemorySessionService)
-
-
-def test_session_service_factory_local_does_not_need_gcp_env(monkeypatch):
-    monkeypatch.setenv("MEMORY_BACKEND", "local")
-    monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
-    monkeypatch.delenv("AGENT_RUNTIME_ID", raising=False)
-
-    from memory.session_service import create_session_service
-    # Should not raise even without GCP vars
-    svc = create_session_service()
-    assert svc is not None
 
 
 # ── Memory service factory ────────────────────────────────────────────────────

@@ -17,7 +17,7 @@ Agent mapping:
 """
 import os
 
-DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"
+DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite"
 
 
 def _resolve_model(per_agent_env_key: str) -> str:

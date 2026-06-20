@@ -1,0 +1,52 @@
+[project]
+name = "medication-companion"
+version = "0.1.0"
+description = "Multi-agent AI system (Google ADK + Gemini) that helps patients in India understand prescriptions and flag drug interactions across multiple visits."
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = "Apache-2.0"
+
+dependencies = [
+    "google-adk>=1.0.0",
+    "google-cloud-aiplatform[evaluation,agent-engines]>=1.156.0",
+    "google-cloud-texttospeech>=2.16.0",
+    "google-cloud-storage>=2.16.0",
+    "google-cloud-logging>=3.10.0",
+    "google-cloud-bigquery>=3.21.0",
+    "firebase-admin>=6.5.0",
+    "httpx>=0.27.0",
+    "rapidfuzz>=3.9.0",
+    "pydantic>=2.7.0",
+    "protobuf>=6.31.1,<7.0.0",
+    "opentelemetry-sdk>=1.24.0",
+    "opentelemetry-exporter-gcp-trace>=1.6.0",
+    "python-dotenv>=1.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit", "tests/integration"]
+asyncio_mode = "auto"
+# Integration / load tests hit live Vertex AI; opt-in via `pytest -m live`.
+addopts = "-m 'not live'"
+markers = [
+    "live: marks tests that call live Vertex AI / GCP services (run with `-m live`)",
+]
+filterwarnings = [
+    # google-adk 2.3.0 deprecates SequentialAgent in favor of the new graph-based
+    # Workflow API. Migration is deferred to post-capstone; see AGENTS.md.
+    "ignore:SequentialAgent is deprecated.*:DeprecationWarning",
+    "ignore:BaseAgentConfig is deprecated.*:DeprecationWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
