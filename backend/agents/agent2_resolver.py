@@ -12,7 +12,7 @@ Demonstrates Day 2 (Tools & Interoperability):
 from google.adk.agents import LlmAgent
 from pydantic import BaseModel, Field
 
-from llm_models import DRUG_NAME_RESOLVER_LLM
+from llm_models import DRUG_NAME_RESOLVER_LLM, gemini
 from tools.drug_lookup import drug_lookup_tool
 from tools.combo_splitter import combo_splitter_tool
 
@@ -58,7 +58,7 @@ def create_resolver_agent() -> LlmAgent:
     """Create and return the Medication Resolver agent."""
     return LlmAgent(
         name="medication_resolver",
-        model=DRUG_NAME_RESOLVER_LLM,
+        model=gemini(DRUG_NAME_RESOLVER_LLM),
         instruction=RESOLVER_INSTRUCTION,
         tools=[drug_lookup_tool, combo_splitter_tool],
         output_schema=ResolverOutput,

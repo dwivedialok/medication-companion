@@ -26,3 +26,31 @@ resource "google_storage_bucket" "logs_data_bucket" {
 
   depends_on = [resource.google_project_service.services]
 }
+
+# Prescription image uploads (signed PUT URLs from auth_broker) +
+# TTS audio output (signed GET URLs from Agent 5). Read/write IAM is granted
+# via project-level roles/storage.admin in iam.tf (app_sa + reasoning_engine_sa).
+resource "google_storage_bucket" "uploads" {
+  name                        = var.uploads_bucket_name
+  location                    = var.region
+  project                     = var.project_id
+  uniform_bucket_level_access = true
+
+  cors {
+    origin          = ["*"]
+    method          = ["GET", "PUT", "POST"]
+    response_header = ["Content-Type", "Authorization"]
+    max_age_seconds = 3600
+  }
+
+  depends_on = [resource.google_project_service.services]
+}
+
+# Lets the dev who runs `make deploy` upload drugs.db to the uploads bucket
+# (deploy-prep uses user ADC, not app_sa). Only created when dev_deployer_email is set.
+resource "google_storage_bucket_iam_member" "dev_deployer_uploads" {
+  count  = var.dev_deployer_email != "" ? 1 : 0
+  bucket = google_storage_bucket.uploads.name
+  role   = "roles/storage.objectAdmin"
+  member = "user:${var.dev_deployer_email}"
+}

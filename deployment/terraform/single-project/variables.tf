@@ -26,7 +26,7 @@ variable "project_id" {
 variable "region" {
   type        = string
   description = "Google Cloud region for resource deployment."
-  default     = "us-east1"
+  default     = "us-central1"
 }
 
 variable "telemetry_logs_filter" {
@@ -42,14 +42,27 @@ variable "feedback_logs_filter" {
 }
 
 variable "app_sa_roles" {
-  description = "List of roles to assign to the application service account"
+  description = "List of roles to assign to the application service account and Vertex AI Reasoning Engine service identity"
   type        = list(string)
   default = [
-
     "roles/aiplatform.user",
     "roles/logging.logWriter",
     "roles/cloudtrace.agent",
     "roles/storage.admin",
     "roles/serviceusage.serviceUsageConsumer",
+    # TTS: no dedicated synthesis IAM role — enable texttospeech.googleapis.com
+    # (apis.tf) and serviceusage.serviceUsageConsumer is sufficient for standard API.
   ]
+}
+
+variable "uploads_bucket_name" {
+  description = "Name of the GCS bucket used for prescription image uploads and TTS audio output. Must be globally unique."
+  type        = string
+  default     = "medication-companion-uploads"
+}
+
+variable "dev_deployer_email" {
+  description = "Optional. Email of the human developer who runs make deploy from their laptop. Granted objectAdmin on the uploads bucket so deploy-prep can upload drugs.db. Leave empty in CI/shared tfvars."
+  type        = string
+  default     = ""
 }

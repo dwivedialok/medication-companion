@@ -13,7 +13,7 @@ Delegates to Agent 5 (Localisation) via A2A after generating the English explana
 from google.adk.agents import LlmAgent
 from pydantic import BaseModel, Field
 
-from llm_models import PATIENT_EDUCATION_LLM
+from llm_models import PATIENT_EDUCATION_LLM, gemini
 from memory.memory_service import MemoryServiceWrapper
 from tools.patient_memory import create_memory_write_callback
 
@@ -64,7 +64,7 @@ def create_education_agent(memory_service: MemoryServiceWrapper) -> LlmAgent:
     """Create and return the Patient Education agent."""
     return LlmAgent(
         name="patient_education",
-        model=PATIENT_EDUCATION_LLM,
+        model=gemini(PATIENT_EDUCATION_LLM),
         instruction=EDUCATION_INSTRUCTION,
         output_schema=EducationOutput,
         after_agent_callback=create_memory_write_callback(memory_service),

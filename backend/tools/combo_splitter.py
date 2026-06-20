@@ -10,16 +10,14 @@ from __future__ import annotations
 
 import csv
 import logging
-from pathlib import Path
 
 from google.adk.tools import FunctionTool
 
 from tools import drug_index
+from tools.data_paths import india_brands_csv
 from tools.drug_normalize import normalize_brand
 
 logger = logging.getLogger(__name__)
-
-_CSV_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "india_brands.csv"
 
 # Public cache symbol preserved for backward compatibility with existing tests
 # (tests reset `tools.combo_splitter._COMBO_MAP = None`).
@@ -45,7 +43,7 @@ def _load_combos_from_csv() -> dict[str, list[dict]]:
     """Fallback combo map sourced from the curated CSV only."""
     combos: dict[str, list[dict]] = {}
     try:
-        with open(_CSV_PATH, newline="", encoding="utf-8") as f:
+        with open(india_brands_csv(), newline="", encoding="utf-8") as f:
             for row in csv.DictReader(f):
                 raw = (row.get("components") or "").strip()
                 if not raw:

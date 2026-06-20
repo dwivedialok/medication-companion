@@ -17,19 +17,63 @@ warning. Callers are expected to fall back gracefully.
 from __future__ import annotations
 
 import logging
+import os
 import sqlite3
 import threading
 from pathlib import Path
 
+from tools.data_paths import drugs_db_path
 from tools.drug_normalize import canonical_pair, normalize_brand, normalize_generic
 
 logger = logging.getLogger(__name__)
 
-_DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "drugs.db"
-
 _LOCK = threading.Lock()
 _CONN: sqlite3.Connection | None = None
 _WARNED_MISSING = False
+
+
+def _download_db_from_gcs(gcs_uri: str, dest: Path) -> None:
+    from google.cloud import storage
+
+    without_scheme = gcs_uri[len("gs://") :]
+    bucket_name, _, blob_name = without_scheme.partition("/")
+    if not bucket_name or not blob_name:
+        raise ValueError(f"Invalid DRUGS_DB_GCS_URI: {gcs_uri!r}")
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    client = storage.Client()
+    bucket = client.bucket(bucket_name)
+    bucket.blob(blob_name).download_to_filename(str(dest))
+    logger.info("Downloaded drugs.db from %s to %s", gcs_uri, dest)
+
+
+def _resolve_db_path() -> Path:
+    local = drugs_db_path()
+    if local.exists():
+        return local
+
+    gcs_uri = os.environ.get("DRUGS_DB_GCS_URI", "").strip()
+    if not gcs_uri.startswith("gs://"):
+        return local
+
+    cache_dir = Path(
+        os.environ.get("DRUGS_DB_CACHE_DIR", "/tmp/medication-companion-data")
+    )
+    cached = cache_dir / "drugs.db"
+    if cached.exists():
+        return cached
+
+    try:
+        _download_db_from_gcs(gcs_uri, cached)
+        return cached
+    except Exception as exc:
+        logger.warning(
+            "Failed to download drugs.db from %s: %s — drug_lookup will fall back "
+            "to curated CSV only.",
+            gcs_uri,
+            exc,
+        )
+        return local
 
 
 def _connect() -> sqlite3.Connection | None:
@@ -39,16 +83,18 @@ def _connect() -> sqlite3.Connection | None:
     with _LOCK:
         if _CONN is not None:
             return _CONN
-        if not _DB_PATH.exists():
+        db_path = _resolve_db_path()
+        if not db_path.exists():
             if not _WARNED_MISSING:
                 logger.warning(
                     "drugs.db not found at %s — drug_lookup will fall back to "
-                    "curated CSV only. Run scripts/build_drug_index.py.",
-                    _DB_PATH,
+                    "curated CSV only. Run scripts/build_drug_index.py or set "
+                    "DRUGS_DB_GCS_URI.",
+                    db_path,
                 )
                 _WARNED_MISSING = True
             return None
-        uri = f"file:{_DB_PATH}?mode=ro"
+        uri = f"file:{db_path}?mode=ro"
         _CONN = sqlite3.connect(uri, uri=True, check_same_thread=False)
         _CONN.row_factory = sqlite3.Row
     return _CONN
@@ -56,11 +102,12 @@ def _connect() -> sqlite3.Connection | None:
 
 def reset() -> None:
     """Close the cached connection (used by tests)."""
-    global _CONN
+    global _CONN, _WARNED_MISSING
     with _LOCK:
         if _CONN is not None:
             _CONN.close()
             _CONN = None
+        _WARNED_MISSING = False
 
 
 # ── Brand lookups ────────────────────────────────────────────────────────────

@@ -23,6 +23,32 @@ _VOICE_MAP = {
 }
 
 
+def _signed_get_url(blob) -> str:
+    """Return a V4 signed GET URL.
+
+    Agent Runtime uses metadata credentials (no private key). Pass access_token
+    so the storage client can sign via IAM signBlob instead of a local key.
+    """
+    import datetime
+
+    import google.auth
+    from google.auth.transport import requests as auth_requests
+
+    credentials, _ = google.auth.default(
+        scopes=["https://www.googleapis.com/auth/cloud-platform"]
+    )
+    auth_request = auth_requests.Request()
+    credentials.refresh(auth_request)
+
+    return blob.generate_signed_url(
+        version="v4",
+        expiration=datetime.timedelta(hours=24),
+        method="GET",
+        service_account_email=credentials.service_account_email,
+        access_token=credentials.token,
+    )
+
+
 def text_to_speech(text: str, language_code: str) -> dict:
     """Synthesize speech from text and return a GCS signed URL.
 
@@ -59,14 +85,11 @@ def text_to_speech(text: str, language_code: str) -> dict:
     blob_name = f"audio/{language_code}/{os.urandom(8).hex()}.mp3"
 
     storage_client = storage.Client()
-    blob = storage_client.bucket(bucket_name).blob(blob_name)
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(blob_name)
     blob.upload_from_string(response.audio_content, content_type="audio/mpeg")
 
-    signed_url = blob.generate_signed_url(
-        version="v4",
-        expiration=datetime.timedelta(hours=24),
-        method="GET",
-    )
+    signed_url = _signed_get_url(blob)
 
     # MP3 at ~24 kbps ≈ 3 000 bytes/s
     duration_seconds = max(1, len(response.audio_content) // 3000)

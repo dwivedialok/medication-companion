@@ -22,7 +22,7 @@ resource "google_iam_workload_identity_pool" "github_pool" {
   workload_identity_pool_id = "${var.project_name}-pool"
   project                   = var.cicd_runner_project_id
   display_name              = "GitHub Actions Pool"
-  depends_on         = [resource.google_project_service.cicd_services, resource.google_project_service.deploy_project_services]
+  depends_on                = [resource.google_project_service.cicd_services, resource.google_project_service.deploy_project_services]
 }
 
 resource "google_iam_workload_identity_pool_provider" "github_provider" {
@@ -34,7 +34,7 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
   attribute_mapping = {
-    "google.subject"         = "assertion.sub"
+    "google.subject"             = "assertion.sub"
     "attribute.repository"       = "assertion.repository"
     "attribute.repository_owner" = "assertion.repository_owner"
   }

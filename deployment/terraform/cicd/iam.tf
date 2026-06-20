@@ -60,6 +60,27 @@ resource "google_project_iam_member" "app_sa_roles" {
   depends_on = [resource.google_project_service.cicd_services, resource.google_project_service.deploy_project_services]
 }
 
+# 4. Grant the Reasoning Engine managed service identity the same app roles.
+# Agent Runtime executes as gcp-sa-aiplatform-re (NOT app_sa).
+resource "google_project_iam_member" "reasoning_engine_sa_roles" {
+  for_each = {
+    for pair in setproduct(keys(local.deploy_project_ids), var.app_sa_roles) :
+    "${pair[0]},${pair[1]}" => {
+      env  = pair[0]
+      role = pair[1]
+    }
+  }
+
+  project    = local.deploy_project_ids[each.value.env]
+  role       = each.value.role
+  member     = local.reasoning_engine_sa_members[each.value.env]
+  depends_on = [resource.google_project_service.deploy_project_services]
+}
+
+# 5. NOTE: The signBlob self-binding for the Reasoning Engine SA (TTS V4 signed
+# URLs) is granted POST-deploy via `make grant-tts-iam`. The -re SA is created
+# lazily on first agent invocation, so Terraform cannot bind to it at apply time.
+
 
 
 

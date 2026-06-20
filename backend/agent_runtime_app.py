@@ -32,14 +32,15 @@ load_dotenv()
 class AgentEngineApp(AdkApp):
     def set_up(self) -> None:
         """Initialize the agent engine app with logging and telemetry."""
+        # Gemini endpoint is pinned to "global" per-model via GlobalGemini in
+        # backend/llm_models.py — do NOT touch GOOGLE_CLOUD_LOCATION here; it
+        # remains the project's regional setting (us-central1).
         vertexai.init()
         setup_telemetry()
         super().set_up()
         logging.basicConfig(level=logging.INFO)
         logging_client = google_cloud_logging.Client()
         self.logger = logging_client.logger(__name__)
-        if gemini_location:
-            os.environ["GOOGLE_CLOUD_LOCATION"] = gemini_location
 
     def register_feedback(self, feedback: dict[str, Any]) -> None:
         """Collect and log feedback."""
@@ -57,7 +58,6 @@ class AgentEngineApp(AdkApp):
         return self
 
 
-gemini_location = os.environ.get("GOOGLE_CLOUD_LOCATION")
 logs_bucket_name = os.environ.get("LOGS_BUCKET_NAME")
 agent_runtime = AgentEngineApp(
     app=adk_app,

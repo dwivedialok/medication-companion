@@ -37,6 +37,8 @@ backend/evaluation/→ LLM-as-Judge (async, non-blocking) + tool eval harnesses
 frontend/lib/      → Flutter app
 data/              → curated CSV (committed) + drugs.db SQLite index (committed)
 deploy/            → deployment scripts
+                   → auth_broker/ (Cloud Run token broker)
+                   → legacy_cloud_run/ (archived FastAPI + A2A)
 scripts/           → GCP setup/teardown + drug index builder
 ```
 
@@ -75,6 +77,22 @@ emit `INFO`.
 
 Quality is gated by `backend/tests/test_drug_lookup_eval.py`, which exercises
 the curated set, hand-crafted OCR-noise inputs, and negative cases.
+
+## Agent Runtime + auth broker
+
+- **Agent Runtime** hosts the ADK pipeline (`backend/agent_runtime_app.py`).
+  Deploy with `agents-cli deploy`; do not expose it directly to clients.
+- **Auth broker** (`backend/auth_broker/`) is the only client-facing HTTP API.
+  It verifies Firebase JWTs, issues GCS signed upload URLs, and proxies to
+  Agent Runtime using service-account credentials.
+- `patient_id` is always derived from the verified Firebase UID in the broker.
+- Image transport: client uploads to GCS via signed URL, then sends `gs://` URI
+  to `/prescription`. Agent 1 reads the image via `Part.from_uri`.
+- Local dev: `make auth-broker` (HTTP token broker on :8080). Set
+  `USE_LOCAL_RUNNER=true` to run the pipeline in-process without a deployed
+  Agent Runtime (broker still uses real GCS for uploads).
+- Pub/Sub ambient-agent wiring (Day 4 follow-up) is a separate concern — do not
+  conflate it with this HTTP auth broker.
 
 ---
 

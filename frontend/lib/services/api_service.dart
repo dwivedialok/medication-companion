@@ -38,7 +38,10 @@ class ApiService {
     return {};
   }
 
-  /// POST /prescription — multipart upload of [imageBytes].
+  /// Analyse a prescription image via the auth broker:
+  /// 1. POST /upload-url → signed GCS PUT URL
+  /// 2. PUT image bytes to GCS
+  /// 3. POST /prescription with gcs_uri + language
   ///
   /// [mimeType] should be one of: image/jpeg, image/png, image/webp
   /// [language] is the BCP-47 target language for audio (default: en-IN)
@@ -48,39 +51,117 @@ class ApiService {
     String language = 'en-IN',
     String fileName = 'prescription.jpg',
   }) async {
-    final uri = Uri.parse('${AppConfig.apiBaseUrl}/prescription');
-    final headers = await _authHeaders();
+    final base = AppConfig.apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final headers = {
+      ...await _authHeaders(),
+      'Content-Type': 'application/json',
+    };
 
-    final request = http.MultipartRequest('POST', uri)
-      ..headers.addAll(headers)
-      ..fields['language'] = language
-      ..files.add(http.MultipartFile.fromBytes(
-        'image',
-        imageBytes,
-        filename: fileName,
-        contentType: MediaType.parse(mimeType),
-      ));
+    // Step 1: request signed upload URL (production path)
+    final uploadUrlResp = await http
+        .post(
+          Uri.parse('$base/upload-url'),
+          headers: headers,
+          body: jsonEncode({'content_type': mimeType}),
+        )
+        .timeout(const Duration(seconds: 30));
 
-    final streamedResponse = await request.send().timeout(
-      const Duration(seconds: 120),
-    );
-    final response = await http.Response.fromStream(streamedResponse);
+    final uploadBody = _decodeBody(uploadUrlResp);
+    String gcsUri;
+    String contentType;
 
-    final body = _decodeBody(response);
+    if (uploadUrlResp.statusCode == 200) {
+      final uploadMap = uploadBody as Map<String, dynamic>;
+      final signedPutUrl = uploadMap['upload_url'] as String;
+      gcsUri = uploadMap['gcs_uri'] as String;
+      contentType = uploadMap['content_type'] as String? ?? mimeType;
 
-    if (response.statusCode == 200) {
+      final putResp = await http
+          .put(
+            Uri.parse(signedPutUrl),
+            headers: {'Content-Type': contentType},
+            body: imageBytes,
+          )
+          .timeout(const Duration(seconds: 60));
+
+      if (putResp.statusCode < 200 || putResp.statusCode >= 300) {
+        throw ApiException(
+          putResp.statusCode,
+          'Image upload failed (${putResp.statusCode}). Please try again.',
+        );
+      }
+    } else if (AppConfig.isLocal) {
+      // Local dev fallback when user ADC cannot sign GCS URLs
+      final multipartRequest = http.MultipartRequest(
+        'POST',
+        Uri.parse('$base/upload-direct'),
+      );
+      multipartRequest.headers.addAll(await _authHeaders());
+      multipartRequest.files.add(
+        http.MultipartFile.fromBytes(
+          'image',
+          imageBytes,
+          filename: fileName,
+          contentType: MediaType.parse(mimeType),
+        ),
+      );
+      final directStreamed = await multipartRequest.send().timeout(
+        const Duration(seconds: 60),
+      );
+      final directRespBody = await http.Response.fromStream(directStreamed);
+      final directBody = _decodeBody(directRespBody);
+      if (directRespBody.statusCode != 200) {
+        throw ApiException(
+          directRespBody.statusCode,
+          _errorMessage(directBody) ?? 'Local image upload failed.',
+        );
+      }
+      gcsUri = (directBody as Map<String, dynamic>)['gcs_uri'] as String;
+      contentType =
+          (directBody)['content_type'] as String? ?? mimeType;
+    } else {
+      throw ApiException(
+        uploadUrlResp.statusCode,
+        _errorMessage(uploadBody) ?? 'Could not prepare image upload.',
+      );
+    }
+
+    // Step 3: trigger analysis via auth broker → Agent Runtime
+    final analyzeResp = await http
+        .post(
+          Uri.parse('$base/prescription'),
+          headers: headers,
+          body: jsonEncode({
+            'gcs_uri': gcsUri,
+            'language': language,
+            'content_type': contentType,
+          }),
+        )
+        .timeout(const Duration(seconds: 120));
+
+    final body = _decodeBody(analyzeResp);
+
+    if (analyzeResp.statusCode == 200) {
       return PrescriptionResult.fromJson(body as Map<String, dynamic>);
     }
 
-    if (response.statusCode == 422) {
+    if (analyzeResp.statusCode == 422) {
       final message = (body as Map<String, dynamic>)['message'] as String? ??
           'The prescription image was not clear enough. Please retake the photo.';
       throw RetakeRequiredException(message);
     }
 
-    final message = (body is Map ? body['message'] ?? body['detail'] : null) ??
-        'Something went wrong. Please try again.';
-    throw ApiException(response.statusCode, message.toString());
+    throw ApiException(
+      analyzeResp.statusCode,
+      _errorMessage(body) ?? 'Something went wrong. Please try again.',
+    );
+  }
+
+  String? _errorMessage(dynamic body) {
+    if (body is Map) {
+      return (body['message'] ?? body['detail'])?.toString();
+    }
+    return null;
   }
 
   dynamic _decodeBody(http.Response response) {

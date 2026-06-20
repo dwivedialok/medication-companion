@@ -26,19 +26,17 @@ from __future__ import annotations
 import csv
 import logging
 import os
-from pathlib import Path
 
 import httpx
 from google.adk.tools import FunctionTool
 
 from tools import drug_index
+from tools.data_paths import india_brands_csv
 from tools.drug_normalize import normalize_brand
 
 logger = logging.getLogger(__name__)
 
-_CSV_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "india_brands.csv"
-
-# Public cache symbol preserved for backward compatibility with existing tests
+# Public cache symbol preserved
 # (tests reset `tools.drug_lookup._INDIA_BRANDS = None`).
 _INDIA_BRANDS: dict[str, dict] | None = None
 
@@ -59,8 +57,9 @@ _OCR_TABLE = str.maketrans({"0": "o", "1": "l", "5": "s", "8": "b"})
 
 def _load_csv() -> dict[str, dict]:
     lookup: dict[str, dict] = {}
+    csv_path = india_brands_csv()
     try:
-        with open(_CSV_PATH, newline="", encoding="utf-8") as f:
+        with open(csv_path, newline="", encoding="utf-8") as f:
             for row in csv.DictReader(f):
                 brand = (row.get("brand_name") or "").strip()
                 key = normalize_brand(brand)
@@ -88,7 +87,7 @@ def _load_csv() -> dict[str, dict]:
                     "components": comps,
                 }
     except FileNotFoundError:
-        logger.warning("india_brands.csv not found at %s", _CSV_PATH)
+        logger.warning("india_brands.csv not found at %s", csv_path)
     return lookup
 
 

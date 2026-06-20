@@ -16,7 +16,7 @@ Demonstrates Day 3 (Context Engineering / Memory):
 from google.adk.agents import LlmAgent
 from pydantic import BaseModel, Field
 
-from llm_models import MEDICATION_SAFETY_LLM
+from llm_models import MEDICATION_SAFETY_LLM, gemini
 from memory.memory_service import MemoryServiceWrapper
 from tools.interaction_lookup import interaction_lookup_tool
 from tools.patient_memory import create_patient_history_tool
@@ -75,7 +75,7 @@ def create_safety_agent(memory_service: MemoryServiceWrapper) -> LlmAgent:
     """Create and return the Safety agent."""
     return LlmAgent(
         name="medication_safety",
-        model=MEDICATION_SAFETY_LLM,
+        model=gemini(MEDICATION_SAFETY_LLM),
         instruction=SAFETY_INSTRUCTION,
         tools=[
             create_patient_history_tool(memory_service),

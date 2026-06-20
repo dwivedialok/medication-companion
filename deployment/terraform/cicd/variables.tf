@@ -51,16 +51,23 @@ variable "repository_name" {
 }
 
 variable "app_sa_roles" {
-  description = "List of roles to assign to the application service account"
+  description = "List of roles to assign to the application service account and Vertex AI Reasoning Engine service identity (granted in each deploy project)"
   type        = list(string)
   default = [
-
     "roles/aiplatform.user",
     "roles/logging.logWriter",
     "roles/cloudtrace.agent",
     "roles/storage.admin",
     "roles/serviceusage.serviceUsageConsumer",
+    # TTS: no dedicated synthesis IAM role — enable texttospeech.googleapis.com
+    # and serviceusage.serviceUsageConsumer is sufficient for standard API.
   ]
+}
+
+variable "uploads_bucket_suffix" {
+  description = "Suffix appended to each deploy project ID to form the uploads bucket name (gs://${project_id}-${suffix}). Globally unique per project."
+  type        = string
+  default     = "uploads"
 }
 
 variable "cicd_roles" {

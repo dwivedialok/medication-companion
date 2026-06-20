@@ -20,10 +20,12 @@ locals {
     "bigquery.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "iam.googleapis.com",
+    "iamcredentials.googleapis.com",
     "serviceusage.googleapis.com",
     "logging.googleapis.com",
     "cloudtrace.googleapis.com",
     "telemetry.googleapis.com",
+    "texttospeech.googleapis.com",
   ]
 }
 
@@ -34,8 +36,3 @@ resource "google_project_service" "services" {
   disable_on_destroy = false
 }
 
-resource "google_project_service_identity" "vertex_sa" {
-  provider = google-beta
-  project = var.project_id
-  service = "aiplatform.googleapis.com"
-}

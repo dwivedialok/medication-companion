@@ -27,3 +27,13 @@ output "logs_bucket_names" {
   value       = { for k, v in google_storage_bucket.logs_data_bucket : k => v.name }
 }
 
+output "uploads_bucket_names" {
+  description = "Prescription upload + TTS audio bucket names by environment"
+  value       = { for k, v in google_storage_bucket.uploads : k => v.name }
+}
+
+output "vertex_reasoning_engine_sas" {
+  description = "Vertex AI Reasoning Engine service identity emails by environment (Agent Runtime runs as these)"
+  value       = local.reasoning_engine_sa_emails
+}
+

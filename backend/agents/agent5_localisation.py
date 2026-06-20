@@ -11,7 +11,7 @@ changes. The consult-your-doctor disclaimer must survive translation verbatim.
 from google.adk.agents import LlmAgent
 from pydantic import BaseModel
 
-from llm_models import LOCALISATION_AUDIO_LLM
+from llm_models import LOCALISATION_AUDIO_LLM, gemini
 from tools.tts import tts_tool
 
 
@@ -36,7 +36,9 @@ You are a medical translation and audio specialist.
 
 Given an English medication explanation (in your context), you must:
 
-1. Identify the target_language from the context.
+1. Identify the target_language from the user message (look for "Target language: <code>").
+   Supported codes: hi-IN (Hindi), ta-IN (Tamil), te-IN (Telugu), bn-IN (Bengali), en-IN (English).
+   Default to en-IN if not specified.
 2. Translate the explanation faithfully into that language.
    - Do NOT change meaning, add commentary, or alter clinical content.
    - The consult-your-doctor disclaimer MUST appear in the translated text.
@@ -57,7 +59,7 @@ def create_localisation_agent() -> LlmAgent:
     """Create and return the Localisation agent."""
     return LlmAgent(
         name="localisation_audio",
-        model=LOCALISATION_AUDIO_LLM,
+        model=gemini(LOCALISATION_AUDIO_LLM),
         instruction=LOCALISATION_INSTRUCTION,
         tools=[tts_tool],
         output_schema=LocalisationOutput,

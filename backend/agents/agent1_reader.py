@@ -14,7 +14,7 @@ from google.adk.agents import LlmAgent
 from google.adk.tools import FunctionTool
 from pydantic import BaseModel, Field
 
-from llm_models import PRESCRIPTION_IMAGE_READER_LLM
+from llm_models import PRESCRIPTION_IMAGE_READER_LLM, gemini
 
 
 # ── Data contracts ────────────────────────────────────────────────────────────
@@ -45,8 +45,8 @@ CONFIDENCE_THRESHOLD = 0.75
 
 READER_INSTRUCTION = f"""
 You are a prescription image reader. Your ONLY job is to extract drug names from the
-prescription image provided. You do NOT resolve brand names, check interactions, or
-make any clinical judgements.
+prescription image provided. The image may arrive as a gs:// GCS URI or inline bytes.
+You do NOT resolve brand names, check interactions, or make any clinical judgements.
 
 For each drug name you can read:
 - Output the name exactly as written
@@ -64,7 +64,7 @@ def create_reader_agent() -> LlmAgent:
     """Create and return the Prescription Reader agent."""
     return LlmAgent(
         name="prescription_reader",
-        model=PRESCRIPTION_IMAGE_READER_LLM,
+        model=gemini(PRESCRIPTION_IMAGE_READER_LLM),
         instruction=READER_INSTRUCTION,
         output_schema=ReaderOutput,
         description=(

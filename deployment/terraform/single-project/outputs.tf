@@ -21,3 +21,13 @@ output "logs_bucket_name" {
   description = "Logs storage bucket name"
   value       = google_storage_bucket.logs_data_bucket.name
 }
+
+output "uploads_bucket_name" {
+  description = "Bucket for prescription image uploads and TTS audio output"
+  value       = google_storage_bucket.uploads.name
+}
+
+output "vertex_reasoning_engine_sa" {
+  description = "Email of the managed Vertex AI Reasoning Engine service identity (Agent Runtime runs as this SA)"
+  value       = local.reasoning_engine_sa_email
+}

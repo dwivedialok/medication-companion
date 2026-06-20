@@ -13,7 +13,7 @@
 # limitations under the License.
 
 provider "google" {
-  region = var.region
+  region                = var.region
   user_project_override = true
 }
 
@@ -26,5 +26,24 @@ resource "google_storage_bucket" "logs_data_bucket" {
   force_destroy               = true
 
   depends_on = [resource.google_project_service.cicd_services, resource.google_project_service.deploy_project_services]
+}
+
+# Per-environment prescription uploads + TTS audio bucket. Read/write IAM is
+# granted via project-level roles/storage.admin (app_sa + vertex_sa in iam.tf).
+resource "google_storage_bucket" "uploads" {
+  for_each                    = local.deploy_project_ids
+  name                        = "${each.value}-${var.uploads_bucket_suffix}"
+  location                    = var.region
+  project                     = each.value
+  uniform_bucket_level_access = true
+
+  cors {
+    origin          = ["*"]
+    method          = ["GET", "PUT", "POST"]
+    response_header = ["Content-Type", "Authorization"]
+    max_age_seconds = 3600
+  }
+
+  depends_on = [resource.google_project_service.deploy_project_services]
 }
 

@@ -18,7 +18,7 @@ provider "github" {
 
 # Try to get existing repo
 data "github_repository" "existing_repo" {
-  count = var.create_repository ? 0 : 1
+  count     = var.create_repository ? 0 : 1
   full_name = "${var.repository_owner}/${var.repository_name}"
 }
 
@@ -29,15 +29,15 @@ resource "github_repository" "repo" {
   description = "Repository created with Agents CLI"
   visibility  = "private"
 
-  has_issues      = true
-  has_wiki        = false
-  has_projects    = false
-  has_downloads   = false
+  has_issues    = true
+  has_wiki      = false
+  has_projects  = false
+  has_downloads = false
 
   allow_merge_commit = true
   allow_squash_merge = true
   allow_rebase_merge = true
-  
+
   auto_init = false
 }
 

@@ -16,6 +16,11 @@ locals {
   project_ids = {
     default = var.project_id
   }
+
+  # Agent Runtime executes as the Reasoning Engine managed SA (not app_sa, not
+  # gcp-sa-aiplatform). Email is deterministic once the project number is known.
+  reasoning_engine_sa_email = "service-${data.google_project.project.number}@gcp-sa-aiplatform-re.iam.gserviceaccount.com"
+  reasoning_engine_sa_member = "serviceAccount:${local.reasoning_engine_sa_email}"
 }
 
 
@@ -57,16 +62,22 @@ resource "google_project_iam_member" "app_sa_roles" {
 }
 
 
-# Grant required permissions to Vertex AI service account for Agent Runtime
-resource "google_project_iam_member" "vertex_ai_sa_permissions" {
+# Grant required permissions to the Reasoning Engine managed service identity.
+# Agent Runtime executes as gcp-sa-aiplatform-re, NOT as app_sa.
+resource "google_project_iam_member" "reasoning_engine_sa_permissions" {
   for_each = {
     for pair in setproduct(keys(local.project_ids), var.app_sa_roles) :
     join(",", pair) => pair[1]
   }
 
-  project = var.project_id
-  role    = each.value
-  member  = google_project_service_identity.vertex_sa.member
+  project    = var.project_id
+  role       = each.value
+  member     = local.reasoning_engine_sa_member
   depends_on = [resource.google_project_service.services]
 }
+
+# NOTE: The signBlob self-binding (roles/iam.serviceAccountTokenCreator on the
+# Reasoning Engine SA, for V4 GCS signed URLs from Agent 5 TTS) is granted by
+# `make grant-tts-iam` POST-deploy. The -re SA is created lazily on first agent
+# invocation, so Terraform cannot bind to it at apply time.
 
