@@ -1,0 +1,61 @@
+# Drug-drug interaction lookup contract — interaction_lookup tool + drugs.db
+# Implementation: backend/tools/interaction_lookup.py, data/drugs.db interactions table
+
+tool:
+  name: interaction_lookup
+  file: backend/tools/interaction_lookup.py
+  caller: medication_safety agent (Agent 3)
+
+request:
+  generic_a:
+    type: string
+    description: First generic name; normalized before lookup
+    example: warfarin
+  generic_b:
+    type: string
+    description: Second generic name; pair canonicalized (sorted, normalized)
+    example: aspirin
+
+response:
+  severity:
+    type: string
+    enum: [HIGH, MODERATE, LOW, INFO, NONE]
+    rules:
+      - When pair found in dataset, severity is authoritative for Agent 3
+      - NONE with source none means Agent 3 may emit INFO via pharmacological reasoning
+  mechanism:
+    type: string
+    description: Brief plain-language mechanism from dataset; empty when not found
+  source:
+    type: string
+    enum: [dataset, none]
+  generic_a:
+    type: string
+    description: Canonical normalized generic (sorted pair)
+  generic_b:
+    type: string
+    description: Canonical normalized generic (sorted pair)
+
+database_row:
+  table: interactions
+  fields:
+    generic_a: normalized generic (lexicographically first in pair)
+    generic_b: normalized generic (lexicographically second)
+    severity: HIGH | MODERATE | LOW | INFO
+    mechanism: string
+    source: dataset provenance label from build script
+  build_script: scripts/build_drug_index.py
+  primary_csv: data/medicine_data.csv
+
+agent3_interaction_output:
+  schema: Interaction
+  fields:
+    drug_a: canonical generic from lookup
+    drug_b: canonical generic from lookup
+    severity: from tool or INFO fallback
+    mechanism: plain language, non-diagnostic
+    source: current_visit | cross_visit
+
+pair_coverage:
+  new_vs_new: every NEW drug against every other NEW drug in current prescription
+  new_vs_existing: every NEW drug against every generic in patient memory history

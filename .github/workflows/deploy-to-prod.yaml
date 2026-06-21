@@ -77,3 +77,45 @@ jobs:
             --service-account=${{ vars.APP_SERVICE_ACCOUNT_PROD }} \
             --update-env-vars="COMMIT_SHA=${{ github.sha }},LOGS_BUCKET_NAME=${{ vars.LOGS_BUCKET_NAME_PROD }}"
 
+      - name: Configure docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ vars.REGION }}-docker.pkg.dev --quiet
+
+      - name: Deploy auth broker (Cloud Run)
+        env:
+          GCP_PROJECT: ${{ vars.PROD_PROJECT_ID }}
+          GCP_REGION: ${{ vars.REGION }}
+          APP_SA: ${{ vars.APP_SERVICE_ACCOUNT_PROD }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          ./deploy/auth_broker/deploy.sh
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: stable
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Build Flutter web (production)
+        working-directory: frontend
+        run: |
+          flutter pub get
+          flutter build web --release \
+            --dart-define=API_BASE_URL=https://${{ vars.PROD_PROJECT_ID }}.web.app \
+            --dart-define=ENVIRONMENT=production
+
+      - name: Deploy Flutter to Firebase Hosting
+        run: |
+          firebase deploy --only hosting --project ${{ vars.PROD_PROJECT_ID }} --non-interactive
+
+      - name: Grant Firebase Hosting invoker on auth broker
+        env:
+          GCP_PROJECT: ${{ vars.PROD_PROJECT_ID }}
+          GCP_REGION: ${{ vars.REGION }}
+        run: |
+          chmod +x scripts/grant_firebase_hosting_invoker.sh
+          ./scripts/grant_firebase_hosting_invoker.sh
+

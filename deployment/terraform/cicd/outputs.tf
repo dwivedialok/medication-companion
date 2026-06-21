@@ -37,3 +37,21 @@ output "vertex_reasoning_engine_sas" {
   value       = local.reasoning_engine_sa_emails
 }
 
+output "auth_broker_service_names" {
+  description = "Cloud Run service name for the auth broker by environment"
+  value       = { for k, v in google_cloud_run_v2_service.auth_broker : k => v.name }
+}
+
+output "auth_broker_service_urls" {
+  description = "Cloud Run URLs by environment. Browsers should NOT hit these directly — use Firebase Hosting domain (rewrites)."
+  value       = { for k, v in google_cloud_run_v2_service.auth_broker : k => v.uri }
+}
+
+output "auth_broker_artifact_registries" {
+  description = "Artifact Registry Docker repo for auth broker images by environment"
+  value = {
+    for k, v in google_artifact_registry_repository.auth_broker :
+    k => "${var.region}-docker.pkg.dev/${local.deploy_project_ids[k]}/${v.repository_id}"
+  }
+}
+

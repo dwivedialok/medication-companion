@@ -22,19 +22,19 @@ todos:
     status: pending
   - id: specs
     content: Create specs/ folder with Gherkin BDD scenarios + flat-YAML schemas (medication_history, interaction_matrix, language_map) + agent_boundaries.yaml
-    status: pending
+    status: completed
   - id: instruction_hierarchy
     content: Add backend/agents/GEMINI.md, .agent/skills/ reusable workflows, and docs/forensic_prompts.md (Day 5 instruction hierarchy + bug-fix doctrine)
-    status: pending
+    status: completed
   - id: image_classification
     content: Add image_classification enum field to Agent 1 reader output (prescription | non_prescription | suspected_overlay_injection | unreadable) — input for the structural policy gate
-    status: pending
+    status: completed
   - id: policy_server
     content: Build backend/policy/policy_server.py with image-intake structural gate (on Agent 1 image_classification), output semantic LLM gate (after Agent 4/5), and deferred Q&A input gate behind FEATURE_QA_ENABLED
-    status: pending
+    status: completed
   - id: context_resolver
     content: Add backend/policy/context_resolver.py with [[PLACEHOLDER]] substitution and refactor Agent 5 to use it
-    status: pending
+    status: completed
   - id: otel
     content: Wire OpenTelemetry tracing into main.py + ADK callbacks; capture trajectory spans with hashed patient_id
     status: pending

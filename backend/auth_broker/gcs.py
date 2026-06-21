@@ -58,6 +58,39 @@ def gcs_upload_hint(exc: Exception) -> str:
     return str(exc)
 
 
+def _signed_url(
+    blob,
+    *,
+    method: str,
+    expiration: datetime.timedelta,
+    content_type: str | None = None,
+) -> str:
+    """Return a V4 signed URL using IAM signBlob (no local private key).
+
+    Cloud Run and Agent Runtime use metadata credentials. Pass access_token and
+    service_account_email so generate_signed_url calls IAM signBlob instead.
+    """
+    import google.auth
+    from google.auth.transport import requests as auth_requests
+
+    credentials, _ = google.auth.default(
+        scopes=["https://www.googleapis.com/auth/cloud-platform"]
+    )
+    auth_request = auth_requests.Request()
+    credentials.refresh(auth_request)
+
+    kwargs: dict = {
+        "version": "v4",
+        "expiration": expiration,
+        "method": method,
+        "service_account_email": credentials.service_account_email,
+        "access_token": credentials.token,
+    }
+    if content_type is not None:
+        kwargs["content_type"] = content_type
+    return blob.generate_signed_url(**kwargs)
+
+
 def create_upload_target(content_type: str) -> dict[str, str]:
     """
     Return a V4 signed PUT URL and the destination gs:// URI.
@@ -76,10 +109,10 @@ def create_upload_target(content_type: str) -> dict[str, str]:
 
     client = storage.Client()
     blob = client.bucket(bucket_name).blob(blob_name)
-    upload_url = blob.generate_signed_url(
-        version="v4",
-        expiration=datetime.timedelta(minutes=15),
+    upload_url = _signed_url(
+        blob,
         method="PUT",
+        expiration=datetime.timedelta(minutes=15),
         content_type=mime,
     )
 

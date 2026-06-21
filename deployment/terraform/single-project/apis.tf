@@ -26,6 +26,9 @@ locals {
     "cloudtrace.googleapis.com",
     "telemetry.googleapis.com",
     "texttospeech.googleapis.com",
+    # Firebase Hosting (site + service agent for Cloud Run rewrites).
+    "firebase.googleapis.com",
+    "firebasehosting.googleapis.com",
   ]
 }
 

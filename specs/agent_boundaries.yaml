@@ -1,0 +1,128 @@
+# Flat agent boundary contract — Day 5 "format tax"
+# Source of truth for per-agent inputs, outputs, and forbidden actions.
+# Code mirrors: backend/agents/agent*.py, .cursor/rules/medication-companion.mdc
+
+pipeline:
+  name: medication_companion
+  orchestration: SequentialAgent
+  order:
+    - prescription_reader
+    - medication_resolver
+    - medication_safety
+    - patient_education
+    - localisation_audio
+  callbacks:
+    before: input_guardrail_callback  # backend/tools/guardrails.py
+    after: output_guardrail_callback  # backend/tools/guardrails.py
+
+agents:
+  prescription_reader:
+    file: backend/agents/agent1_reader.py
+    responsibility: Extract drug names from prescription image with OCR confidence scoring
+    inputs:
+      - gs:// GCS URI or inline image bytes in user message
+    outputs:
+      schema: ReaderOutput
+      fields:
+        status: ok | gate1_reject
+        extracted_drugs: list of {raw_name, confidence}
+        gate1_reject: optional Gate1Reject with user_message
+      planned_field: image_classification  # prescription | non_prescription | suspected_overlay_injection | unreadable
+    tools: []
+    forbidden:
+      - Resolve brand names to generics
+      - Check drug interactions
+      - Generate patient-facing explanations
+      - Make clinical judgements or diagnoses
+    gate1_threshold: 0.75
+
+  medication_resolver:
+    file: backend/agents/agent2_resolver.py
+    responsibility: Brand-to-generic resolution, FDC splitting, NEW/EXISTING/UNRESOLVED tagging
+    inputs:
+      - ReaderOutput.extracted_drugs from session state
+      - Patient prior drug list from session/memory context
+    outputs:
+      schema: ResolverOutput
+      fields:
+        resolved_drugs: list of ResolvedDrug
+        unresolved_count: int
+    tools:
+      - drug_lookup
+      - combo_splitter
+    forbidden:
+      - Safety or interaction checking
+      - Patient-facing text generation
+      - Guessing generics when lookup fails — must tag UNRESOLVED
+
+  medication_safety:
+    file: backend/agents/agent3_safety.py
+    responsibility: Drug-drug interaction checking within visit and against cross-visit memory
+    inputs:
+      - ResolverOutput.resolved_drugs
+      - Patient medication history via get_patient_medication_history
+    outputs:
+      schema: SafetyOutput
+      fields:
+        interactions: list of Interaction {drug_a, drug_b, severity, mechanism, source}
+        overall_severity: HIGH | MODERATE | LOW | INFO | NONE
+        safe_to_proceed: bool
+    tools:
+      - get_patient_medication_history
+      - interaction_lookup
+    forbidden:
+      - Patient-facing explanations or summaries
+      - Inventing drug names not in resolved list
+      - Severity values outside HIGH | MODERATE | LOW | INFO | NONE
+
+  patient_education:
+    file: backend/agents/agent4_education.py
+    responsibility: Plain-language English explanation calibrated to severity
+    inputs:
+      - SafetyOutput and ResolverOutput from session state
+    outputs:
+      schema: EducationOutput
+      fields:
+        drug_cards: list
+        interaction_cards: list
+        summary: str
+        questions_for_doctor: list
+        overall_severity: str
+        disclaimer: mandatory consult redirect
+    tools: []
+    side_effects:
+      - Writes visit to memory after_agent_callback (generic names + severity only)
+    forbidden:
+      - Diagnostic language
+      - Dose change or stop-medication advice
+      - New safety checking or drug resolution
+      - Referencing drugs not in resolved_drugs
+
+  localisation_audio:
+    file: backend/agents/agent5_localisation.py
+    responsibility: Faithful translation to target Indian language + TTS audio URL
+    inputs:
+      - EducationOutput summary and cards (via session context)
+      - target_language from user message (hi-IN | ta-IN | te-IN | bn-IN | en-IN)
+    outputs:
+      schema: LocalisationOutput
+      fields:
+        translated_text: str
+        audio_url: str
+        language_code: str
+    tools:
+      - text_to_speech
+    forbidden:
+      - Changing clinical meaning of the explanation
+      - Omitting the consult-your-doctor disclaimer from translated text
+      - Adding new medical content
+
+guardrails:
+  file: backend/tools/guardrails.py
+  role: Regex-based input/output callbacks on root_agent
+  note: Q&A input patterns deferred behind FEATURE_QA_ENABLED; output patterns active on Agent 4/5 text
+
+auth_broker:
+  file: backend/auth_broker/
+  responsibility: Firebase JWT verification, GCS signed upload URLs, Agent Runtime proxy
+  patient_id_source: verified Firebase UID only — never request body

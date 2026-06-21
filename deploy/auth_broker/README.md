@@ -41,25 +41,62 @@ auto-falls back; Flutter does the same when `ENVIRONMENT=local`.
 
 ## Production
 
-Deploy to Cloud Run **with authentication required** (do not use `--allow-unauthenticated`).
+The auth broker runs on Cloud Run with **`--allow-unauthenticated`** at the IAM
+layer because [Firebase Hosting rewrites](https://firebase.google.com/docs/hosting/cloud-run)
+proxy browser traffic without Google IAM identity tokens. Sensitive routes still
+verify **Firebase JWT** in `auth_broker/auth.py`; `/health` is intentionally public.
 
-Set env vars:
+```
+Browser ──HTTPS──▶ https://<project>.web.app
+                        │
+                        │  (Firebase Hosting rewrite, no IAM token)
+                        ▼
+                  medication-companion-broker (Cloud Run, public invoke)
+                        │
+                        │  (Vertex AI client, app_sa creds)
+                        ▼
+                  Agent Runtime (Reasoning Engine, private)
+```
 
-- `ENVIRONMENT=production`
-- `GCS_BUCKET` — prescription upload bucket
-- `AGENT_RUNTIME_RESOURCE` — full resource name from `deployment_metadata.json`
-- `FIREBASE_PROJECT_ID` — for CORS allowlist
+### Infrastructure (Terraform)
 
-The broker service account needs:
+`deployment/terraform/{single-project,cicd}/auth_broker.tf` owns:
 
-- `roles/storage.objectCreator` on the upload bucket (signed URLs)
+- Artifact Registry Docker repo (`<project>-broker`)
+- `google_cloud_run_v2_service.auth_broker` (skeleton — image and dynamic env
+  ignored via `lifecycle.ignore_changes`)
+- `roles/iam.serviceAccountTokenCreator` self-binding on `app_sa` (V4 signed
+  PUT URLs)
+
+Run `make infra-apply` (single-project) or `terraform apply` in the cicd
+module to provision these.
+
+### Revisions (deploy script)
+
+`deploy/auth_broker/deploy.sh` (or `make deploy-auth-broker`) builds the
+Docker image, pushes to Artifact Registry, and runs `gcloud run deploy`
+against the Terraform-managed service to update only:
+
+- `--image` (the new container tag)
+- `--allow-unauthenticated` (required for Hosting rewrites)
+- `--update-env-vars=AGENT_RUNTIME_RESOURCE=…` (read from
+  `deployment_metadata.json` produced by `make deploy`)
+
+Static env vars (`ENVIRONMENT`, `GCS_BUCKET`, `FIREBASE_PROJECT_ID`) come from
+Terraform.
+
+### Required IAM
+
+- `roles/storage.admin` on the broker SA (signed URL bucket access)
 - `roles/aiplatform.user` (call Agent Runtime `streamQuery`)
+- `roles/iam.serviceAccountTokenCreator` self-binding (sign blobs for V4 URLs) — Terraform
+- `roles/run.invoker` for `allUsers` on the broker service — set by `make deploy-auth-broker`
 
 ## Client flow
 
 ```
-Flutter → POST /upload-url (Bearer Firebase JWT)
-       → PUT image to signed URL (no auth)
-       → POST /prescription {gcs_uri, language} (Bearer Firebase JWT)
+Flutter → POST /upload-url      (Firebase JWT, via Hosting rewrite)
+       → PUT image to GCS       (signed URL, no auth)
+       → POST /prescription     (Firebase JWT, via Hosting rewrite)
        ← PrescriptionResult JSON
 ```

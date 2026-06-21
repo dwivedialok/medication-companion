@@ -1,4 +1,4 @@
-.PHONY: test auth-broker deploy deploy-dry-run deploy-status deploy-prep playground infra infra-apply post-deploy grant-tts-iam
+.PHONY: test auth-broker deploy deploy-dry-run deploy-status deploy-prep playground infra infra-apply post-deploy grant-tts-iam grant-hosting-invoker deploy-auth-broker deploy-backend deploy-frontend
 
 test:
 	uv run pytest
@@ -70,8 +70,13 @@ infra-apply:
 post-deploy: grant-tts-iam
 
 # Grant the app SA the ability to sign blobs as itself. Required for Agent 5
-# (TTS) V4 GCS signed URLs. We use app_sa (not -re) because Owner cannot bind
-# IAM on the Google-managed Reasoning Engine service agent.
+# (TTS) V4 GCS signed URLs and the auth broker's GCS signed PUT URLs.
+#
+# NOTE: This binding is now declared in Terraform
+# (deployment/terraform/{single-project,cicd}/auth_broker.tf via
+# google_service_account_iam_member.app_sa_signblob). This Make target stays
+# as a recovery / first-time bootstrap helper for projects that pre-date the
+# TF resource or where the binding has drifted. Safe to re-run any time.
 grant-tts-iam:
 	@echo "Granting roles/iam.serviceAccountTokenCreator self-binding to $(APP_SA)"; \
 	echo "(Required for Agent 5 TTS V4 GCS signed URLs via IAM signBlob)"; \
@@ -79,3 +84,31 @@ grant-tts-iam:
 		--project=$(GCP_PROJECT) \
 		--member="serviceAccount:$(APP_SA)" \
 		--role=roles/iam.serviceAccountTokenCreator --quiet
+
+# Grant Firebase Hosting → auth broker run.invoker (legacy — see script header).
+grant-hosting-invoker:
+	chmod +x scripts/grant_firebase_hosting_invoker.sh
+	GCP_PROJECT=$(GCP_PROJECT) GCP_REGION=$(GCP_REGION) \
+		./scripts/grant_firebase_hosting_invoker.sh
+
+# ── Auth broker (Cloud Run) ───────────────────────────────────────────────────
+# Build, push, and update the broker revision. Terraform owns the service
+# skeleton + IAM; this only changes the image and AGENT_RUNTIME_RESOURCE.
+deploy-auth-broker:
+	GCP_PROJECT=$(GCP_PROJECT) GCP_REGION=$(GCP_REGION) \
+		./deploy/auth_broker/deploy.sh
+
+# Convenience: full backend deploy in the right order.
+# Agent Runtime first (produces deployment_metadata.json), then auth broker
+# (consumes AGENT_RUNTIME_RESOURCE from that file).
+deploy-backend: deploy deploy-auth-broker
+
+# Convenience: Flutter PWA build + Firebase Hosting deploy.
+# Requires `flutterfire configure` was run once for this project.
+FIREBASE_PROJECT ?= $(GCP_PROJECT)
+HOSTING_URL ?= https://$(FIREBASE_PROJECT).web.app
+deploy-frontend:
+	cd frontend && flutter build web --release \
+		--dart-define=API_BASE_URL=$(HOSTING_URL) \
+		--dart-define=ENVIRONMENT=production
+	firebase deploy --only hosting --project $(FIREBASE_PROJECT)

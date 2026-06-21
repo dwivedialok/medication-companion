@@ -1,0 +1,52 @@
+{
+  "hosting": {
+    "public": "frontend/build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/upload-url",
+        "run": {
+          "serviceId": "medication-companion-broker",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/upload-direct",
+        "run": {
+          "serviceId": "medication-companion-broker",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/prescription",
+        "run": {
+          "serviceId": "medication-companion-broker",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/health",
+        "run": {
+          "serviceId": "medication-companion-broker",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(js|css)",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        ]
+      }
+    ]
+  }
+}

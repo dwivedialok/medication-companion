@@ -31,3 +31,18 @@ output "vertex_reasoning_engine_sa" {
   description = "Email of the managed Vertex AI Reasoning Engine service identity (Agent Runtime runs as this SA)"
   value       = local.reasoning_engine_sa_email
 }
+
+output "auth_broker_service_name" {
+  description = "Cloud Run service name for the auth broker (image revisions are pushed by deploy/auth_broker/deploy.sh)"
+  value       = google_cloud_run_v2_service.auth_broker.name
+}
+
+output "auth_broker_service_url" {
+  description = "Cloud Run URL for the auth broker. Browsers should NOT hit this directly — use the Firebase Hosting domain (rewrites)."
+  value       = google_cloud_run_v2_service.auth_broker.uri
+}
+
+output "auth_broker_artifact_registry" {
+  description = "Artifact Registry Docker repo for auth broker images (region-docker.pkg.dev/<project>/<repo>)"
+  value       = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.auth_broker.repository_id}"
+}

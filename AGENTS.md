@@ -22,7 +22,7 @@ understand prescriptions and flag drug interactions across multiple visits.
 3. Never store prescription images or clinical notes in memory — only resolved generic drug names
 4. Never call raw Gemini API — always use `google.adk LlmAgent`
 5. Never use `print()` in production paths — use `google.cloud.logging`
-6. Never deploy with `--allow-unauthenticated` — both Cloud Run services require auth
+6. Never deploy backend services with `--allow-unauthenticated` except the **auth broker** when fronted by Firebase Hosting rewrites (Google requires public Cloud Run invoke; `/upload-url` and `/prescription` still verify Firebase JWT). Agent Runtime stays private.
 7. `patient_id` comes from verified Firebase JWT — never from client body
 
 ---
@@ -92,17 +92,37 @@ the curated set, hand-crafted OCR-noise inputs, and negative cases.
   `USE_LOCAL_RUNNER=true` to run the pipeline in-process without a deployed
   Agent Runtime (broker still uses real GCS for uploads).
 - Pub/Sub ambient-agent wiring (Day 4 follow-up) is a separate concern — do not
-  conflate it with this HTTP auth broker.
+ conflate it with this HTTP auth broker.
+- Operational deploy commands (Agent Runtime, auth broker, Firebase Hosting,
+ incremental updates) live in [`docs/deployment_runbook.md`](docs/deployment_runbook.md).
+
+---
+
+## Instruction hierarchy (Day 5)
+
+Layered instructions — check the most specific layer first:
+
+| Layer | Location | Purpose |
+|-------|----------|---------|
+| Chat | Cursor / Jules session | Short-lived task orchestration |
+| Specs | [`specs/`](specs/) | Gherkin scenarios + flat YAML schemas (source of truth) |
+| Agent skills | [`.agent/skills/`](.agent/skills/) | Reusable feature workflows |
+| Model overrides | [`backend/agents/GEMINI.md`](backend/agents/GEMINI.md) | Per-agent Gemini config |
+| Global DNA | This file + [`.cursor/rules/medication-companion.mdc`](.cursor/rules/medication-companion.mdc) | Hard rules |
+
+For evidence-driven debugging, use templates in [`docs/forensic_prompts.md`](docs/forensic_prompts.md).
 
 ---
 
 ## Adding a new feature
 
 1. Update this file first with the new rule or boundary
-2. Update `.cursor/rules/medication-companion.mdc` if it affects agent/tool behaviour  
-3. Write the test in `backend/tests/` before generating the implementation
-4. Implement in the appropriate `agents/` or `tools/` file
-5. Run `pytest backend/tests/` — all tests must pass before committing
+2. Update `specs/` (scenario or schema) if behaviour changes
+3. Update `.cursor/rules/medication-companion.mdc` if it affects agent/tool behaviour
+4. Write the test in `tests/unit/` or `tests/integration/` before generating the implementation
+5. Implement in the appropriate `agents/` or `tools/` file
+6. Run `uv run pytest tests/unit tests/integration` — all tests must pass before committing
+7. For production incidents, start from [`docs/forensic_prompts.md`](docs/forensic_prompts.md)
 
 ---
 
@@ -133,6 +153,11 @@ pytest tests/
 
 ## Known follow-ups (post-capstone)
 
+Full product backlog: [`docs/BACKLOG.md`](docs/BACKLOG.md).
+
+- **Bind GCS upload URI to authenticated patient.** `/prescription` must not
+  accept a `gcs_uri` issued to a different Firebase UID. Required before public
+  launch; not capstone-blocking. See BACKLOG for options.
 - **Migrate `SequentialAgent` → `Workflow` (graph DAG).** `google-adk` 2.3.0
   deprecates `SequentialAgent`; the new graph-based `Workflow` API (`Node`,
   `Edge`, `JoinNode`, `START`) is the long-term replacement but is a real

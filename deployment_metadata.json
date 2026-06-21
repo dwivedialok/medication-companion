@@ -2,5 +2,12 @@
   "remote_agent_runtime_id": "projects/1055948951000/locations/us-central1/reasoningEngines/3777770770189516800",
   "deployment_target": "agent_runtime",
   "is_a2a": false,
-  "deployment_timestamp": "2026-06-20T22:35:16.753465+00:00"
+  "deployment_timestamp": "2026-06-20T22:35:16.753465+00:00",
+  "pending_operation": {
+    "operation_name": "projects/1055948951000/locations/us-central1/reasoningEngines/3777770770189516800/operations/1553102977877671936",
+    "project": "medication-companion-dev",
+    "location": "us-central1",
+    "deployment_target": "agent_runtime",
+    "started_at": "2026-06-21T16:27:43.805313+00:00"
+  }
 }

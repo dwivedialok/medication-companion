@@ -89,7 +89,10 @@ variable "cicd_sa_deployment_required_roles" {
   default = [
     "roles/iam.serviceAccountUser",
     "roles/aiplatform.user",
-    "roles/storage.admin"
+    "roles/storage.admin",
+    # Required for deploy/auth_broker/deploy.sh (gcloud run deploy + artifact push).
+    "roles/run.admin",
+    "roles/artifactregistry.writer",
   ]
 }
 

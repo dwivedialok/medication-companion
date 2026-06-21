@@ -15,6 +15,7 @@ RUN pip install --no-cache-dir uv
 COPY pyproject.toml uv.lock ./
 COPY backend ./backend
 COPY data ./data
+COPY specs ./specs
 
 RUN uv sync --locked --no-dev
 

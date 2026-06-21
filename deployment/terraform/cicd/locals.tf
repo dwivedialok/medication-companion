@@ -37,6 +37,8 @@ locals {
     "cloudtrace.googleapis.com",
     "telemetry.googleapis.com",
     "texttospeech.googleapis.com",
+    "firebase.googleapis.com",
+    "firebasehosting.googleapis.com",
   ]
 
   deploy_project_ids = {
