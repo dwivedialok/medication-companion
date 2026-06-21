@@ -1,12 +1,14 @@
-.PHONY: test auth-broker deploy deploy-dry-run deploy-status deploy-prep playground infra infra-apply post-deploy grant-tts-iam grant-hosting-invoker deploy-auth-broker deploy-backend deploy-frontend
+.PHONY: test local-auth-broker auth-broker deploy deploy-dry-run deploy-status deploy-prep playground infra infra-apply post-deploy grant-tts-iam grant-hosting-invoker deploy-auth-broker deploy-backend deploy-frontend
 
 test:
 	uv run pytest
 
-# HTTP token broker (Firebase JWT → GCS → Agent Runtime). Not Pub/Sub — that is a
-# separate ambient-agent path for a later phase.
-auth-broker:
+# Local HTTP token broker (Firebase JWT → GCS → Agent Runtime). Not Pub/Sub — that
+# is a separate ambient-agent path for a later phase.
+local-auth-broker:
 	cd backend && uv run uvicorn auth_broker.main:app --reload --host 0.0.0.0 --port 8080
+
+auth-broker: local-auth-broker
 
 playground:
 	agents-cli playground

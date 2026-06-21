@@ -118,5 +118,5 @@ Never disable the policy gate — narrow the rubric or fix agent wording.
 ## Usage notes
 
 - Attach specs: link relevant scenario from `specs/pipeline.feature` or `specs/safety_refusal.feature`
-- For local repro: `make auth-broker` + `uv run python scripts/test_prescription.py <image>`
+- For local repro: `make local-auth-broker` + `uv run python scripts/test_prescription.py <image>`
 - For deployed repro: include engine id and commit SHA from Cloud Run / Agent Runtime env

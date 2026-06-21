@@ -88,7 +88,7 @@ the curated set, hand-crafted OCR-noise inputs, and negative cases.
 - `patient_id` is always derived from the verified Firebase UID in the broker.
 - Image transport: client uploads to GCS via signed URL, then sends `gs://` URI
   to `/prescription`. Agent 1 reads the image via `Part.from_uri`.
-- Local dev: `make auth-broker` (HTTP token broker on :8080). Set
+- Local dev: `make local-auth-broker` (HTTP token broker on :8080). Set
   `USE_LOCAL_RUNNER=true` to run the pipeline in-process without a deployed
   Agent Runtime (broker still uses real GCS for uploads).
 - Pub/Sub ambient-agent wiring (Day 4 follow-up) is a separate concern — do not

@@ -26,7 +26,7 @@ export USE_LOCAL_RUNNER=true
 export GCS_BUCKET=medication-companion-uploads
 export GOOGLE_CLOUD_PROJECT=medication-companion-dev
 
-make auth-broker
+make local-auth-broker
 ```
 
 > **Naming:** This is the **HTTP auth broker** (Firebase → GCS → Agent Runtime).

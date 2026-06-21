@@ -4,6 +4,8 @@ Operational cheat sheet for Medication Companion. One command per scenario —
 no narrative. For architecture, see [AGENTS.md](../AGENTS.md) and
 [deploy/auth_broker/README.md](../deploy/auth_broker/README.md).
 
+**Manual smoke tests (A1→C ladder):** [smoke_test_cheatsheet.md](smoke_test_cheatsheet.md)
+
 The deploy stack is split across four tools:
 
 | Layer | Tool | Source of truth |
@@ -66,10 +68,12 @@ make deploy-auth-broker GCP_PROJECT=$GCP_PROJECT GCP_REGION=$GCP_REGION
 make deploy-backend GCP_PROJECT=$GCP_PROJECT GCP_REGION=$GCP_REGION
 ```
 
-Smoke-test the backend without Flutter:
+Smoke-test the backend without Flutter (see [smoke_test_cheatsheet.md](smoke_test_cheatsheet.md) for all scenarios):
 
 ```bash
-uv run python scripts/test_prescription.py data/sample/prescription.jpg \
+export RX_IMAGE=~/path/to/prescription.jpg   # or data/sample/prescription.jpg (local)
+
+uv run python scripts/test_prescription.py "$RX_IMAGE" \
   --url https://$GCP_PROJECT.web.app \
   --token "$FIREBASE_ID_TOKEN"
 ```
