@@ -47,7 +47,27 @@ For a brand-new GCP project (e.g. `medication-companion-prod`).
    ```bash
    gcloud storage cp data/drugs.db gs://$GCP_PROJECT-uploads/artifacts/drugs.db
    ```
-6. **Bootstrap GitHub Actions** (only if CI deploys this env): set repo vars + WIF via the `cicd` module's outputs.
+6. **BigQuery eval audit table** (async LLM-as-Judge scores from production runs).
+   Not created by Terraform today — run once per new GCP project:
+   ```bash
+   GCP_PROJECT=$GCP_PROJECT ./scripts/setup_eval_bigquery.sh
+   ```
+   Creates dataset `medication_companion` and table `eval_log`. Idempotent.
+   Grants **project-level** `roles/bigquery.dataEditor` to **`medication-companion-app@…`**
+   (the `agents-cli deploy --service-account` identity). Runtime code uses
+   `google.auth.default()` as that SA — not the Reasoning Engine managed SA.
+   Verify:
+   ```bash
+   bq query --use_legacy_sql=false \
+     "SELECT COUNT(*) FROM \`${GCP_PROJECT}.medication_companion.eval_log\`"
+   ```
+   Without this step, deployed Agent Runtime logs
+   `BigQuery write failed: … Dataset …:medication_companion` (404) or
+   `Permission bigquery.tables.updateData denied` (403) after each successful
+   prescription (pipeline still returns to the patient). The script grants
+   `bigquery.dataEditor` on the dataset to `medication-companion-app@…` and
+   the Reasoning Engine managed SA.
+7. **Bootstrap GitHub Actions** (only if CI deploys this env): set repo vars + WIF via the `cicd` module's outputs.
 
 ## §2 Full backend deploy (Agent Runtime + auth broker)
 
@@ -134,6 +154,8 @@ No Agent Runtime or auth broker redeploy needed.
 | `FIREBASE_PROJECT_ID` | Terraform → Cloud Run env | Auth broker CORS |
 | `API_BASE_URL` | Flutter `--dart-define` | Flutter `ApiService` |
 | `ENVIRONMENT` | Flutter `--dart-define` + broker env | Both (toggles dev bypass) |
+| `BIGQUERY_DATASET` | Agent Runtime env (default `medication_companion`) | `backend/evaluation/llm_judge.py` → `eval_log` writes |
+| `LOGS_BUCKET_NAME` | `make deploy` / CI (`{project}-medication-companion-logs`) | Prompt-response telemetry (`backend/app_utils/telemetry.py`) |
 
 ## §8 Troubleshooting one-liners
 
@@ -148,5 +170,8 @@ No Agent Runtime or auth broker redeploy needed.
 | `/prescription` returns 500 from Agent Runtime | Stale `AGENT_RUNTIME_RESOURCE` on broker after a new `agents-cli deploy` | `make deploy-auth-broker` (re-reads `deployment_metadata.json`). |
 | Agent 5 TTS audio missing | `-re` SA lacks signBlob on first deploy in a project | `make grant-tts-iam GCP_PROJECT=$GCP_PROJECT`. |
 | Flutter shows "Firebase not configured" | `firebase_options.dart` is still the stub | `cd frontend && flutterfire configure --project=$GCP_PROJECT`. |
+| `BigQuery write failed: Dataset …:medication_companion` | Eval audit dataset not provisioned in this project | `GCP_PROJECT=$GCP_PROJECT ./scripts/setup_eval_bigquery.sh` (see §1 step 6). |
+| `BigQuery write failed: … Permission bigquery.tables.updateData denied` | Deploy SA (`medication-companion-app@…`) lacks BQ insert IAM | `GCP_PROJECT=$GCP_PROJECT ./scripts/setup_eval_bigquery.sh` or `gcloud projects add-iam-policy-binding … --member=serviceAccount:medication-companion-app@… --role=roles/bigquery.dataEditor`. Or `terraform apply` (`app_sa_roles` includes `bigquery.dataEditor`). Re-run smoke. |
+| `bq query … eval_log` returns blank / zero rows | Judge ran but inserts failed (403/404), or eval skipped (Gate 1) | Check Cloud Logging for `Pipeline eval complete` vs `BigQuery write failed`. Fix IAM/dataset, re-run smoke. |
 
 For deeper investigation see [docs/forensic_prompts.md](forensic_prompts.md).

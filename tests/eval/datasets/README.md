@@ -6,10 +6,38 @@ This directory contains evaluation datasets for testing agent behavior.
 
 ### Default Dataset
 ```bash
-# Generate traces using the default dataset
+# Regenerate inline image bytes after changing data/sample/smoke_4drug_2interactions.png
+uv run python scripts/build_smoke_eval_dataset.py
+
+# Generate traces using the default dataset (hits deployed or local agent)
 agents-cli eval generate
 agents-cli eval grade
+
+# Or one-shot:
+agents-cli eval run
 ```
+
+**Verify step 1 (dataset only, no Gemini):**
+```bash
+uv run python scripts/build_smoke_eval_dataset.py
+python3 -c "
+import json
+d=json.load(open('tests/eval/datasets/basic-dataset.json'))
+ids=[c['eval_case_id'] for c in d['eval_cases']]
+assert 'smoke_4drug_2interactions' in ids
+print('OK:', ids)
+"
+```
+
+**Verify step 1 (full eval against deployed Runtime):**
+```bash
+export GCP_PROJECT=medication-companion-dev
+export GOOGLE_CLOUD_PROJECT=$GCP_PROJECT
+agents-cli eval generate --dataset tests/eval/datasets/basic-dataset.json
+agents-cli eval grade --config tests/eval/eval_config.yaml
+open artifacts/grade_results/results_*.html   # macOS
+```
+Graded traces land in `artifacts/grade_results/`; Agent Platform **Evaluation → Experiments** updates after `generate`/`grade`, not after `agents-cli run` smoke tests.
 
 ### Custom Dataset
 ```bash

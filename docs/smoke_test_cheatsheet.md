@@ -442,6 +442,63 @@ make deploy-frontend GCP_PROJECT=$GCP_PROJECT
 
 ---
 
+## Day 4 eval + observability verification (after code changes)
+
+Three incremental checks — run in order.
+
+### Step 1 · Eval dataset (no Gemini)
+
+```bash
+uv run python scripts/build_smoke_eval_dataset.py
+python3 -c "
+import json
+ids=[c['eval_case_id'] for c in json.load(open('tests/eval/datasets/basic-dataset.json'))['eval_cases']]
+assert 'smoke_4drug_2interactions' in ids, ids
+print('OK:', ids)
+"
+```
+
+### Step 2 · agents-cli eval (populates Evaluation → Experiments)
+
+Requires deployed Runtime (A2 deploy) and ADC:
+
+```bash
+export GCP_PROJECT=medication-companion-dev
+export GOOGLE_CLOUD_PROJECT=$GCP_PROJECT
+agents-cli eval generate --dataset tests/eval/datasets/basic-dataset.json
+agents-cli eval grade --config tests/eval/eval_config.yaml
+open artifacts/grade_results/results_*.html
+```
+
+**Pass:** `artifacts/traces/` contains smoke trace; HTML report shows `drug_safety_score` and
+`patient_clarity_score`. Agent Platform **Evaluation → Experiments** lists a new experiment.
+
+### Step 3 · Runtime async judge + span attributes (after redeploy)
+
+Redeploy, then run A2b or A2b-broker. Check Cloud Logging for:
+
+```text
+Scheduled async pipeline eval (session=…)
+Pipeline eval complete (session=… safety=… clarity=…)
+```
+
+Optional BigQuery (when `GOOGLE_CLOUD_PROJECT` + `medication_companion.eval_log` exist):
+
+```bash
+bq query --use_legacy_sql=false \
+  'SELECT session_id, safety_score, clarity_score, timestamp
+   FROM `medication-companion-dev.medication_companion.eval_log`
+   ORDER BY timestamp DESC LIMIT 5'
+```
+
+**Traces:** Cloud Console → Agent Platform → **Traces** → open a span → attributes include
+`policy_decision`, `patient_id_hash`, and (on Agent 1) `image_classification`.
+
+**Note:** The **Memories** tab tracks platform memory-generation metrics, not custom
+`VertexAiMemoryBankService.add_memory()` writes — use broker memory smoke (A2b-broker §) instead.
+
+---
+
 ## Pass / fail checklist (all scenarios)
 
 | Check | A1 | A2 | A2b | A2b-broker | A3 | B1 | B2 | C |

@@ -28,6 +28,7 @@ from agents.agent3_safety import create_safety_agent
 from agents.agent4_education import create_education_agent
 from agents.agent5_localisation import create_localisation_agent
 from memory.memory_service import create_memory_service
+from evaluation.pipeline_eval import schedule_pipeline_eval
 from policy import (
     image_intake_callback,
     output_policy_callback,
@@ -58,6 +59,14 @@ safety_agent = create_safety_agent(
 education_agent = create_education_agent(memory_service=memory_service)
 localisation_agent = create_localisation_agent()
 
+
+async def root_after_callbacks(callback_context):
+    """Output policy gate, then fire-and-forget LLM-as-Judge (Day 4 §4.2–4.3)."""
+    await output_policy_callback(callback_context)
+    await schedule_pipeline_eval(callback_context)
+    return None
+
+
 root_agent = SequentialAgent(
     name="medication_companion",
     sub_agents=[
@@ -68,7 +77,7 @@ root_agent = SequentialAgent(
         localisation_agent,
     ],
     before_agent_callback=qa_input_policy_callback,
-    after_agent_callback=output_policy_callback,
+    after_agent_callback=root_after_callbacks,
     description="Prescription pipeline: read → resolve → safety → education → localise.",
 )
 

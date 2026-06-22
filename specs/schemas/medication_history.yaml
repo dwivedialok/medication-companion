@@ -5,6 +5,7 @@ patient_id:
   type: string
   source: Firebase UID from verified JWT
   storage_key: user_id in VertexAiMemoryBankService when MEMORY_BACKEND=vertex
+  app_name: backend  # matches ADK App.name in backend/agent.py (ADK_APP_NAME override)
 
 visit_record:
   description: One persisted visit summary — no images, no raw LLM output, no PII beyond patient_id

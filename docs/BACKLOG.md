@@ -129,6 +129,35 @@ polling UI, specs scenario in `specs/`.
 
 ## Infrastructure & deployment
 
+### Terraform: BigQuery `medication_companion.eval_log` dataset
+
+**Priority:** Medium (prod hygiene) · **Status:** Open
+
+**Problem:** Async LLM-as-Judge scores from production prescription runs write to
+`{project}.medication_companion.eval_log` via `backend/evaluation/llm_judge.py`.
+Terraform today provisions `{project_name}_telemetry` (GenAI log sinks) only —
+not the eval audit dataset. New environments require a manual
+[`scripts/setup_eval_bigquery.sh`](../scripts/setup_eval_bigquery.sh) step
+(documented in [`docs/deployment_runbook.md`](deployment_runbook.md) §1).
+
+**Goal:** Add `google_bigquery_dataset` + `google_bigquery_table.eval_log` to
+`deployment/terraform/single-project/` and mirror in `cicd/` for
+staging/prod project IDs. Grant app SA / Reasoning Engine SA
+`bigquery.dataEditor` on the dataset. Remove manual script from the critical
+path (keep script as idempotent fallback).
+
+**Acceptance criteria:**
+
+- `make infra-apply` creates dataset + table in dev; cicd module creates them
+  in staging/prod.
+- Deployed Agent Runtime writes judge rows without 404 after first prescription.
+- Runbook §1 step 6 marked "optional if Terraform applied".
+
+**Files (expected):** `deployment/terraform/single-project/eval.tf` (new),
+`deployment/terraform/cicd/eval.tf`, IAM in `iam.tf`, runbook update.
+
+---
+
 - **DONE** — Auth broker Cloud Run deploy in CI. Terraform owns the service
   skeleton ([`deployment/terraform/cicd/auth_broker.tf`](../deployment/terraform/cicd/auth_broker.tf));
   `staging.yaml` and `deploy-to-prod.yaml` push image revisions via

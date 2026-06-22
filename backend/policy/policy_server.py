@@ -31,6 +31,9 @@ from google.adk.agents.callback_context import CallbackContext
 from google.genai import types
 from pydantic import BaseModel
 
+from app_utils.span_attributes import annotate_policy_callback
+from llm_models import PRESCRIPTION_IMAGE_READER_LLM
+
 logger = logging.getLogger(__name__)
 
 
@@ -273,7 +276,25 @@ def _extract_text(content: types.Content | None) -> str:
     return " ".join(part.text for part in parts if getattr(part, "text", None))
 
 
-def _sanitize_string(text: str, *, session_id: str) -> str:
+@dataclass
+class _OutputPolicyTrace:
+    """Tracks the strictest policy outcome while sanitizing nested output."""
+
+    decision: str = "allow"
+    violation_class: str | None = None
+
+    def record_deny(self, decision: PolicyDecision) -> None:
+        self.decision = "deny"
+        if decision.violation_class is not None:
+            self.violation_class = decision.violation_class.value
+
+
+def _sanitize_string(
+    text: str,
+    *,
+    session_id: str,
+    trace: _OutputPolicyTrace,
+) -> str:
     """Apply the semantic gate to a single string; replace on deny."""
     decision = evaluate_agent_output(text)
     if decision.allowed:
@@ -284,6 +305,7 @@ def _sanitize_string(text: str, *, session_id: str) -> str:
             text = f"{text}\n\n{REQUIRED_DISCLAIMER}"
         return text
 
+    trace.record_deny(decision)
     logger.warning(
         "Policy DENY (session=%s stage=%s class=%s evidence=%r)",
         session_id,
@@ -294,23 +316,34 @@ def _sanitize_string(text: str, *, session_id: str) -> str:
     return decision.safe_fallback or SAFE_FALLBACK
 
 
-def _sanitize_recursive(value: Any, *, session_id: str) -> Any:
+def _sanitize_recursive(
+    value: Any,
+    *,
+    session_id: str,
+    trace: _OutputPolicyTrace,
+) -> Any:
     if value is None:
         return None
     if isinstance(value, str):
-        return _sanitize_string(value, session_id=session_id)
+        return _sanitize_string(text=value, session_id=session_id, trace=trace)
     if isinstance(value, BaseModel):
         updated = {
             field_name: _sanitize_recursive(
-                getattr(value, field_name), session_id=session_id
+                getattr(value, field_name), session_id=session_id, trace=trace
             )
             for field_name in type(value).model_fields
         }
         return value.__class__(**updated)
     if isinstance(value, dict):
-        return {k: _sanitize_recursive(v, session_id=session_id) for k, v in value.items()}
+        return {
+            k: _sanitize_recursive(v, session_id=session_id, trace=trace)
+            for k, v in value.items()
+        }
     if isinstance(value, list):
-        return [_sanitize_recursive(item, session_id=session_id) for item in value]
+        return [
+            _sanitize_recursive(item, session_id=session_id, trace=trace)
+            for item in value
+        ]
     return value
 
 
@@ -328,6 +361,18 @@ async def image_intake_callback(callback_context: CallbackContext) -> None:
 
     decision = evaluate_image_intake(output)
     session_id = callback_context.session.id
+    classification = _coerce_classification(output)
+
+    annotate_policy_callback(
+        agent_name="prescription_reader",
+        patient_id=getattr(callback_context, "user_id", None),
+        policy_decision=decision.decision,
+        image_classification=classification,
+        violation_class=(
+            decision.violation_class.value if decision.violation_class else None
+        ),
+        model=PRESCRIPTION_IMAGE_READER_LLM,
+    )
 
     if decision.allowed:
         return None
@@ -372,7 +417,16 @@ async def output_policy_callback(callback_context: CallbackContext) -> None:
         return None
 
     session_id = callback_context.session.id
-    callback_context.output = _sanitize_recursive(output, session_id=session_id)
+    trace = _OutputPolicyTrace()
+    callback_context.output = _sanitize_recursive(
+        output, session_id=session_id, trace=trace
+    )
+    annotate_policy_callback(
+        agent_name="medication_companion",
+        patient_id=getattr(callback_context, "user_id", None),
+        policy_decision=trace.decision,
+        violation_class=trace.violation_class,
+    )
     return None
 
 
@@ -385,6 +439,14 @@ async def qa_input_policy_callback(
     """
     text = _extract_text(callback_context.user_content)
     decision = evaluate_qa_input(text)
+    annotate_policy_callback(
+        agent_name="medication_companion",
+        patient_id=getattr(callback_context, "user_id", None),
+        policy_decision=decision.decision,
+        violation_class=(
+            decision.violation_class.value if decision.violation_class else None
+        ),
+    )
     if decision.allowed:
         return None
 

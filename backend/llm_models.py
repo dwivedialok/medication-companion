@@ -23,7 +23,7 @@ Gemini endpoint:
   GOOGLE_CLOUD_LOCATION keep its intuitive "project region" meaning.
 """
 import os
-from functools import cached_property
+from functools import cached_property, lru_cache
 
 from google.adk.models import Gemini
 from google.genai import Client
@@ -57,6 +57,12 @@ def _resolve_model(per_agent_env_key: str) -> str:
 def gemini(model_id: str) -> GlobalGemini:
     """Build a GlobalGemini for the given model id (always uses global endpoint)."""
     return GlobalGemini(model=model_id)
+
+
+@lru_cache(maxsize=1)
+def judge_genai_client() -> Client:
+    """Vertex Gemini client for async LLM-as-Judge (global endpoint, same as agents)."""
+    return Client(vertexai=True, location="global", project=os.getenv("GOOGLE_CLOUD_PROJECT"))
 
 
 # Agent 1 — vision OCR + Gate 1 confidence check

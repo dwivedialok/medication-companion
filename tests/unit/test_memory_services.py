@@ -35,6 +35,66 @@ def test_memory_service_factory_local_no_gcp_env(monkeypatch):
     assert svc is not None
 
 
+def test_resolve_agent_engine_id_prefers_runtime_env(monkeypatch):
+    monkeypatch.setenv("GOOGLE_CLOUD_AGENT_ENGINE_ID", "3777770770189516800")
+    monkeypatch.setenv("AGENT_RUNTIME_ID", "other-id")
+
+    from memory.memory_service import _resolve_agent_engine_id
+
+    assert _resolve_agent_engine_id() == "3777770770189516800"
+
+
+def test_resolve_agent_engine_id_parses_resource_path(monkeypatch):
+    monkeypatch.delenv("GOOGLE_CLOUD_AGENT_ENGINE_ID", raising=False)
+    monkeypatch.delenv("AGENT_ENGINE_ID", raising=False)
+    monkeypatch.delenv("AGENT_RUNTIME_ID", raising=False)
+    monkeypatch.setenv(
+        "AGENT_RUNTIME_RESOURCE",
+        "projects/p/locations/us-central1/reasoningEngines/12345",
+    )
+
+    from memory.memory_service import _resolve_agent_engine_id
+
+    assert _resolve_agent_engine_id() == "12345"
+
+
+def test_memory_entry_round_trip():
+    from memory.memory_service import _memory_entry_to_visit, _visit_to_memory_entry
+
+    visit = {
+        "visit_timestamp": "2026-06-22T12:00:00+00:00",
+        "resolved_drugs": ["aspirin"],
+        "severity_summary": "HIGH",
+    }
+    parsed = _memory_entry_to_visit(_visit_to_memory_entry(visit))
+    assert parsed == visit
+
+
+def test_memory_entry_skips_non_json_fact():
+    from memory.memory_service import _memory_entry_to_visit
+    from google.adk.memory.memory_entry import MemoryEntry
+    from google.genai import types
+
+    entry = MemoryEntry(
+        content=types.Content(role="user", parts=[types.Part(text="plain text fact")]),
+    )
+    assert _memory_entry_to_visit(entry) is None
+
+
+def test_memory_service_vertex_requires_engine_id(monkeypatch):
+    monkeypatch.setenv("MEMORY_BACKEND", "vertex")
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "medication-companion-dev")
+    monkeypatch.delenv("GOOGLE_CLOUD_AGENT_ENGINE_ID", raising=False)
+    monkeypatch.delenv("AGENT_ENGINE_ID", raising=False)
+    monkeypatch.delenv("AGENT_RUNTIME_ID", raising=False)
+    monkeypatch.delenv("AGENT_RUNTIME_RESOURCE", raising=False)
+
+    from memory.memory_service import create_memory_service
+
+    svc = create_memory_service()
+    assert svc.is_local() is True
+
+
 # ── Memory CRUD ───────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio

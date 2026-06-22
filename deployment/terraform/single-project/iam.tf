@@ -17,8 +17,9 @@ locals {
     default = var.project_id
   }
 
-  # Agent Runtime executes as the Reasoning Engine managed SA (not app_sa, not
-  # gcp-sa-aiplatform). Email is deterministic once the project number is known.
+  # Agent Runtime user code runs as app_sa when deploy passes --service-account
+  # (see Makefile APP_SA). The Reasoning Engine managed SA (-re) is a separate
+  # platform identity; grant app_sa_roles to both for API access parity.
   reasoning_engine_sa_email = "service-${data.google_project.project.number}@gcp-sa-aiplatform-re.iam.gserviceaccount.com"
   reasoning_engine_sa_member = "serviceAccount:${local.reasoning_engine_sa_email}"
 }

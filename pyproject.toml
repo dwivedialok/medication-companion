@@ -25,6 +25,12 @@ dependencies = [
     "uvicorn[standard]>=0.30.0",
 ]
 
+[project.optional-dependencies]
+eval = [
+    "google-adk[eval]>=2.0.0,<3.0.0",
+    "google-cloud-aiplatform[evaluation]>=1.156.0",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=8.2.0",

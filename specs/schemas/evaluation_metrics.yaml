@@ -18,7 +18,7 @@ generative_evaluations:
   description: Scored 0–10 by async LLM-as-Judge; persisted to BigQuery eval_log
   harness: backend/evaluation/llm_judge.py
   config: tests/eval/eval_config.yaml
-  run_via: agents-cli eval grade (capstone) or score_pipeline_output (runtime)
+  run_via: agents-cli eval grade (capstone) or schedule_pipeline_eval (runtime, wired in agent.py)
 
   metrics:
     drug_safety_score:

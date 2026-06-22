@@ -16,6 +16,7 @@ playground:
 GCP_PROJECT ?= medication-companion-dev
 GCP_REGION ?= us-central1
 GCS_BUCKET ?= medication-companion-uploads
+LOGS_BUCKET_NAME ?= $(GCP_PROJECT)-medication-companion-logs
 DRUGS_DB_GCS_URI ?= gs://$(GCS_BUCKET)/artifacts/drugs.db
 # Run Agent Runtime as our own app SA (Terraform-managed) instead of the
 # Google-managed Reasoning Engine SA. The -re SA cannot be IAM-bound by
@@ -29,7 +30,7 @@ APP_SA ?= medication-companion-app@$(GCP_PROJECT).iam.gserviceaccount.com
 # except the Gemini API, which uses its own pinned global client.
 # Cross-visit medication history uses VertexAiMemoryBankService on deployed Runtime.
 # Local dev keeps MEMORY_BACKEND=local in .env (see .env.example).
-DEPLOY_ENV_VARS ?= DRUGS_DB_GCS_URI=$(DRUGS_DB_GCS_URI),MEMORY_BACKEND=vertex
+DEPLOY_ENV_VARS ?= DRUGS_DB_GCS_URI=$(DRUGS_DB_GCS_URI),MEMORY_BACKEND=vertex,LOGS_BUCKET_NAME=$(LOGS_BUCKET_NAME),OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=NO_CONTENT
 
 # Agent Runtime inline upload is capped at 8 MB. backend/venv (~380 MB) must not
 # exist. drugs.db (~54 MB) is uploaded to GCS; india_brands.csv is copied into
