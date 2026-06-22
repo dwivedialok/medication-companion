@@ -7,15 +7,50 @@ For deploy commands, see [deployment_runbook.md](deployment_runbook.md).
 
 ## Test prescription image
 
-The runbook references `data/sample/prescription.jpg`, but **no sample image is committed**
-(privacy). Use any readable prescription photo (JPEG/PNG):
+**Deterministic fixture (committed):** `data/sample/smoke_4drug_2interactions.png` — four
+curated Indian brands with **two known HIGH interactions** in `data/drugs.db`:
+
+| Brand on Rx | Generic | Interaction |
+|-------------|---------|-------------|
+| Ecosprin | aspirin | aspirin + nimesulide → **HIGH** |
+| Nise | nimesulide | (same pair) |
+| Warf | warfarin | metronidazole + warfarin → **HIGH** |
+| Flagyl | metronidazole | (same pair) |
+
+Within-visit pair count: **6** (= C(4,2)). Expected interactions from dataset: **2**.
+
+Regenerate the PNG: `uv pip install pillow && uv run python scripts/generate_smoke_prescription.py`
+
+Offline sanity check (no Gemini):
 
 ```bash
-# Set once per shell — point at your image
-export RX_IMAGE=~/Downloads/my-prescription.jpg   # or add data/sample/prescription.jpg locally
+uv run python scripts/verify_smoke_fixture.py
+```
+
+For ad-hoc photos, use any readable prescription (JPEG/PNG):
+
+```bash
+export RX_IMAGE=data/sample/smoke_4drug_2interactions.png   # or ~/Downloads/my-rx.jpg
 ```
 
 Requirements: legible drug names, &lt; 8 MB, formats `jpg|png|webp|heic`.
+
+**Standard prompt** (include `Target language:` for Agent 5):
+
+```text
+Please analyse this prescription image. Target language: en-IN
+```
+
+---
+
+## Quick copy-paste paths
+
+| Goal | Scenario | One command block |
+|------|----------|-------------------|
+| Fastest local full HTTP JSON | **A1** | `USE_LOCAL_RUNNER=true` + `test_prescription.py` → [A1](#a1--local-broker--local-adk-runner) |
+| Deployed Runtime + per-agent trace | **A2b** | `agents-cli run --url … --file` → [A2b](#a2b--deployed-agent-runtime-smoke-agents-cli-run--recommended) |
+| Deployed Runtime + HTTP JSON | **A2b-broker** | `USE_LOCAL_RUNNER=false` + `test_prescription.py` → [A2b-broker](#a2b-broker--local-broker--deployed-runtime-prescriptionresult-json) |
+| Prod path + Firebase | **A3 / C** | Hosted URL + JWT → [A3](#a3--cloud-agent-runtime--cloud-auth-broker) |
 
 ---
 
@@ -33,7 +68,8 @@ uv sync
 
 # Once per GCP project
 make infra-apply GCP_PROJECT=$GCP_PROJECT
-gcloud storage cp data/drugs.db gs://$GCP_PROJECT-uploads/artifacts/drugs.db
+# Terraform default bucket (NOT ${GCP_PROJECT}-uploads)
+gcloud storage cp data/drugs.db gs://medication-companion-uploads/artifacts/drugs.db
 cd frontend && flutterfire configure --project=$GCP_PROJECT
 ```
 
@@ -78,7 +114,9 @@ flowchart LR
 | ID | What runs locally | What runs in GCP | Primary tool | Validates |
 |----|-------------------|------------------|--------------|-----------|
 | **A1** | Auth broker + ADK pipeline | Gemini, GCS bucket | `test_prescription.py` | Full pipeline code, GCS upload, broker HTTP |
-| **A2** | `agents-cli playground` or pytest | Gemini (via API) | playground / pytest | Agent wiring only — **not** deployed Runtime revision |
+| **A2** | `make playground` or pytest | Gemini (via API) | ADK web UI / pytest | Agent wiring only — **not** deployed Runtime revision |
+| **A2b** | `agents-cli run` (CLI) | Deployed Agent Runtime + GCS + Gemini | `agents-cli run --url … --file` | Same revision as prod; vision + safety + cloud TTS |
+| **A2b-broker** | `test_prescription.py` + local broker | Agent Runtime + broker assembly | script, `USE_LOCAL_RUNNER=false` | Same as A2b but **PrescriptionResult** JSON via HTTP |
 | **A3** | `test_prescription.py` | Agent Runtime + broker + GCS + Auth | script → Hosting URL | Backend HTTP path + Firebase JWT + remote Runtime |
 | **B1** | Flutter + broker + local Runner | Gemini, GCS | `flutter run` | Flutter UI + same stack as A1 |
 | **B2** | Flutter + broker | Agent Runtime + GCS + Gemini | `flutter run` + env | Flutter UI against **deployed** Runtime |
@@ -97,6 +135,8 @@ flowchart LR
 |----------|------------------------|
 | **A1** | §0 only (ADC + bucket access). **No** `make deploy`. |
 | **A2** | §0. Optional: §2 step 1 if you also want `make deploy-status` on a live Runtime. |
+| **A2b** | §0 + **§2 step 1 only** (`make deploy` + `deploy-status`). No auth broker or Hosting. |
+| **A2b-broker** | Same as A2b + local broker running (no `deploy-auth-broker` required if broker code unchanged). |
 | **A3** | §0 + §1 + **§2** (`make deploy-backend`). Hosting optional if you hit broker via Hosting URL. |
 | **B1** | Same as A1. |
 | **B2** | Same as A3 (need deployed Agent Runtime + `deployment_metadata.json`). |
@@ -124,7 +164,7 @@ make deploy-frontend GCP_PROJECT=$GCP_PROJECT
 export ENVIRONMENT=local
 export DEV_PATIENT_ID=dev-patient-001
 export USE_LOCAL_RUNNER=true
-export GCS_BUCKET=${GCP_PROJECT}-uploads
+export GCS_BUCKET=medication-companion-uploads
 export GOOGLE_CLOUD_PROJECT=$GCP_PROJECT
 
 # Terminal 1
@@ -133,20 +173,51 @@ make local-auth-broker
 # Terminal 2
 curl -s http://localhost:8080/health | jq .
 
+export RX_IMAGE=data/sample/smoke_4drug_2interactions.png
+
 uv run python scripts/test_prescription.py "$RX_IMAGE" \
-  --url http://localhost:8080
+  --url http://localhost:8080 --upload-mode direct
 ```
 
 **Pass:** HTTP 200, JSON with `resolved_drugs`, `overall_severity`, disclaimer text.
 Script auto-falls back to `/upload-direct` if signed URLs fail locally.
 
-**Optional — agent-only (no broker/GCS):**
+**Verify deterministic safety (Agent 3):**
+
+1. **Broker terminal** — after `/prescription`, grep for:
+
+   ```text
+   INFO:tools.safety_check:Safety check for patient dev-patient-001: 4 generic(s), 6 pair(s) checked, 2 interaction(s) from dataset
+   ```
+
+   If you see `No resolved generics in session state`, Agent 2 did not write
+   `resolved_drugs` (often allowlist mismatch — Agent 1 OCR names must match resolver
+   `raw_name`). Re-run with the committed fixture above.
+
+2. **Script summary** — footer should show 4 drugs and 2 interactions:
+
+   ```text
+   Severity   : HIGH
+   Drugs      : 4 resolved
+   Interactions: 2
+   ```
+
+3. **Offline baseline** (before hitting Gemini): `uv run python scripts/verify_smoke_fixture.py`
+
+`pairs_checked` is logged by `tools.safety_check` but is **not** in the HTTP JSON today
+(the LLM copies only `interactions` / `overall_severity` into the API response).
+
+**Optional — local ADK web UI (local code, not deployed Runtime):**
 
 ```bash
-make playground          # agents-cli interactive UI
-# or
-uv run pytest tests/integration/test_agent.py -m live -q
+export GOOGLE_CLOUD_PROJECT=$GCP_PROJECT
+export MEMORY_BACKEND=local
+make playground
+# Open http://localhost:8000?userId=playground-smoke-001
+# Attach $RX_IMAGE via the UI file picker, then send the prompt below.
 ```
+
+Or: `uv run pytest tests/integration/test_agent.py -m live -q`
 
 ---
 
@@ -165,8 +236,113 @@ make grant-tts-iam GCP_PROJECT=$GCP_PROJECT   # first time only
 contains `remote_agent_runtime_id`.
 
 **Limitation:** There is no first-class “upload a JPEG to Runtime” HTTP API — the broker
-is the HTTP façade. For pipeline behaviour without the broker, use A1 playground/pytest.
-For the **deployed** revision, use A3 or B2.
+is the HTTP façade. For the **deployed** revision with an image, use **A2b** (`agents-cli run`)
+or **A2b-broker** (`test_prescription.py` + `USE_LOCAL_RUNNER=false`).
+
+---
+
+### A2b · Deployed Agent Runtime smoke (`agents-cli run`) — **recommended**
+
+**Tests:** the **live** Reasoning Engine revision — full 5-agent pipeline, vision on the
+fixture image, deterministic safety, Agent 5 localisation + **real cloud TTS** — without
+Firebase JWT or Hosting.
+
+**Deploy:** runbook §2 step 1 only (`make deploy` + `deploy-status`).
+
+```bash
+export GCP_PROJECT=medication-companion-dev
+export GOOGLE_CLOUD_PROJECT=$GCP_PROJECT
+export RX_IMAGE=data/sample/smoke_4drug_2interactions.png
+
+# Optional offline check (no Gemini)
+uv run python scripts/verify_smoke_fixture.py
+
+# Base Reasoning Engine URL from deployment_metadata.json
+# IMPORTANT: do NOT append :streamQuery — agents-cli adds :query / :streamQuery itself
+export RUNTIME_URL=$(python3 -c "
+import json
+resource = json.load(open('deployment_metadata.json'))['remote_agent_runtime_id']
+print(f'https://us-central1-aiplatform.googleapis.com/v1/{resource}')
+")
+
+agents-cli run \
+  --url "$RUNTIME_URL" \
+  --mode adk \
+  --file "$RX_IMAGE" \
+  "Please analyse this prescription image. Target language: hi-IN"
+```
+
+**Prompt** (change language code as needed):
+
+```text
+Please analyse this prescription image. Target language: en-IN
+```
+
+Supported: `en-IN`, `hi-IN`, `ta-IN`, `te-IN`, `bn-IN`.
+
+#### Pass (fixture)
+
+| Step | Expected |
+|------|----------|
+| **prescription_reader** | `Ecosprin`, `Nise`, `Warf`, `Flagyl` |
+| **medication_resolver** | `aspirin`, `nimesulide`, `warfarin`, `metronidazole` |
+| **medication_safety** | 2 × **HIGH**: `aspirin+nimesulide`, `metronidazole+warfarin` |
+| **patient_education** | `interaction_cards` use same generic pairs |
+| **localisation_audio** | Non-English text for `hi-IN`; `audio_url` is a **real** `storage.googleapis.com/…` signed URL (not `stub.local`) |
+
+Resume a session: add `--session-id <id>` (printed at end of a prior run).
+
+#### Common mistakes
+
+| Mistake | Symptom |
+|---------|---------|
+| `--url …:streamQuery` | `HTTP 400` — `Resource name invalid …:streamQuery` |
+| Paste `gs://…` in message text only | Agent 1 hallucinates unrelated drugs (e.g. Metformin, Lisinopril) |
+| Use Vertex **Console** playground text box | Often **no image attach**; same hallucination risk — use this CLI flow instead |
+
+#### Console playground (optional, limited)
+
+The Vertex Agent Engine **Console** playground link (from `make deploy` or
+`deployment_metadata.json`) is useful for **text-only** traces and deploy health checks.
+It generally does **not** expose a reliable image-upload control for this agent.
+Do **not** use it as the primary prescription-image smoke test.
+
+---
+
+### A2b-broker · Local broker → deployed Runtime (`PrescriptionResult` JSON)
+
+Same deployed Runtime as A2b, but through the auth broker so you get the same HTTP JSON
+shape as **A1** (including `interactions` assembled from the safety tool).
+
+```bash
+export GCP_PROJECT=medication-companion-dev
+export GOOGLE_CLOUD_PROJECT=$GCP_PROJECT
+export ENVIRONMENT=local
+export DEV_PATIENT_ID=playground-smoke-001
+export USE_LOCAL_RUNNER=false          # broker calls remote Agent Runtime
+export GCS_BUCKET=medication-companion-uploads
+export RX_IMAGE=data/sample/smoke_4drug_2interactions.png
+
+# Terminal 1
+make local-auth-broker
+
+# Terminal 2
+uv run python scripts/test_prescription.py "$RX_IMAGE" \
+  --url http://localhost:8080 \
+  --upload-mode direct \
+  --language hi-IN
+```
+
+**Pass:** HTTP 200; footer shows 4 drugs, 2 interactions, `Severity: HIGH`.
+Broker log: `Running pipeline via Agent Runtime` (not `local ADK Runner`).
+
+**Memory smoke (2nd run):** reuse `DEV_PATIENT_ID=playground-smoke-001`, upload a Rx that
+interacts with drugs from the first visit; Agent 3 should emit a `cross_visit` interaction.
+
+#### Fail / limits (A2b / A2b-broker)
+
+- Does **not** test Firebase JWT, signed upload URLs via Hosting, or Flutter UI → use **A3** or **C**.
+- `agents-cli run` prints per-agent JSON, not a single `PrescriptionResult` → use **A2b-broker** for API shape.
 
 ---
 
@@ -231,7 +407,7 @@ cd frontend && flutter run -d chrome
 export ENVIRONMENT=local
 export DEV_PATIENT_ID=dev-patient-001
 export USE_LOCAL_RUNNER=false          # ← use remote Runtime
-export GCS_BUCKET=${GCP_PROJECT}-uploads
+export GCS_BUCKET=medication-companion-uploads
 export GOOGLE_CLOUD_PROJECT=$GCP_PROJECT
 # AGENT_RUNTIME_RESOURCE picked up from deployment_metadata.json automatically
 # when running from repo root; or set explicitly:
@@ -268,15 +444,16 @@ make deploy-frontend GCP_PROJECT=$GCP_PROJECT
 
 ## Pass / fail checklist (all scenarios)
 
-| Check | A1 | A2 | A3 | B1 | B2 | C |
-|-------|:--:|:--:|:--:|:--:|:--:|:--:|
-| `/health` 200 | ✓ | — | ✓ | ✓ | ✓ | ✓ |
-| GCS upload works | ✓ | — | ✓ | ✓ | ✓ | ✓ |
-| Pipeline returns drugs | ✓ | partial | ✓ | ✓ | ✓ | ✓ |
-| Firebase JWT enforced | — | — | ✓ | — | — | ✓ |
-| Hosting rewrites | — | — | ✓ | — | — | ✓ |
-| Flutter UI | — | — | — | ✓ | ✓ | ✓ |
-| Deployed Runtime revision | — | status | ✓ | — | ✓ | ✓ |
+| Check | A1 | A2 | A2b | A2b-broker | A3 | B1 | B2 | C |
+|-------|:--:|:--:|:---:|:----------:|:--:|:--:|:--:|:--:|
+| `/health` 200 | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | ✓ |
+| GCS upload works | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Pipeline returns drugs | ✓ | partial | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Firebase JWT enforced | — | — | — | — | ✓ | — | — | ✓ |
+| Hosting rewrites | — | — | — | — | ✓ | — | — | ✓ |
+| Flutter UI | — | — | — | — | — | ✓ | ✓ | ✓ |
+| Deployed Runtime revision | — | status | ✓ | ✓ | ✓ | — | ✓ | ✓ |
+| PrescriptionResult JSON | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 ---
 
@@ -287,6 +464,9 @@ See [runbook §8](deployment_runbook.md#8-troubleshooting-one-liners) and
 
 | Symptom | Scenario | First check |
 |---------|----------|-------------|
+| `Resource name invalid …:streamQuery` | A2b | Remove `:streamQuery` from `--url`; use `$RUNTIME_URL` one-liner above |
+| Agent 1 returns wrong drugs (Metformin, etc.) | A2b Console / pasted `gs://` | Use `agents-cli run --file "$RX_IMAGE"` — not text-only Console input |
+| `No resolved generics in session state` | A1, A2b-broker | Re-run with committed fixture; check broker log for `Safety pre-sync wrote 4` |
 | 403 on `/health` via Hosting | A3, C | Re-run `make deploy-auth-broker` (public invoke) |
 | 500 on `/upload-url` “private key” | A3, C | Re-run `make deploy-auth-broker` (signBlob fix in `gcs.py`) |
 | CORS error from Flutter localhost | B → Hosting URL | Use B2 (local broker) instead |

@@ -68,11 +68,12 @@ agents:
         overall_severity: HIGH | MODERATE | LOW | INFO | NONE
         safe_to_proceed: bool
     tools:
-      - get_patient_medication_history
-      - interaction_lookup
+      - check_prescription_interactions
     forbidden:
       - Patient-facing explanations or summaries
       - Inventing drug names not in resolved list
+      - Calling interaction_lookup directly (pairs are checked in Python)
+      - Pharmacological fallback when drugs.db has no row
       - Severity values outside HIGH | MODERATE | LOW | INFO | NONE
 
   patient_education:

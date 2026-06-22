@@ -29,6 +29,8 @@ from pipeline_output import (
     find_education_output,
     find_gate1_reject,
     find_localisation_output,
+    find_safety_output,
+    find_safety_tool_result,
     log_event_authors,
 )
 from schemas import PrescriptionResult
@@ -250,7 +252,15 @@ async def analyze_prescription(body: PrescriptionRequest, request: Request):
         )
 
     localisation = find_localisation_output(events)
-    return assemble_prescription_result(session_id, education, localisation)
+    safety_tool = find_safety_tool_result(events)
+    safety_output = find_safety_output(events)
+    return assemble_prescription_result(
+        session_id,
+        education,
+        localisation,
+        safety_tool=safety_tool,
+        safety_output=safety_output,
+    )
 
 
 @app.exception_handler(Exception)

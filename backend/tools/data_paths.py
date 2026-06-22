@@ -27,4 +27,8 @@ def india_brands_csv() -> Path:
 
 
 def drugs_db_path() -> Path:
-    return data_dir() / "drugs.db"
+    """Prefer bundled DB if present, else repo-root data/drugs.db."""
+    bundled = _BACKEND_DIR / "data" / "drugs.db"
+    if bundled.is_file():
+        return bundled
+    return _BACKEND_DIR.parent / "data" / "drugs.db"

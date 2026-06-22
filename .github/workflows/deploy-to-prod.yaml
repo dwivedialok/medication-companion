@@ -75,7 +75,7 @@ jobs:
             --project ${{ vars.PROD_PROJECT_ID }} \
             --region ${{ vars.REGION }} \
             --service-account=${{ vars.APP_SERVICE_ACCOUNT_PROD }} \
-            --update-env-vars="COMMIT_SHA=${{ github.sha }},LOGS_BUCKET_NAME=${{ vars.LOGS_BUCKET_NAME_PROD }}"
+            --update-env-vars="COMMIT_SHA=${{ github.sha }},LOGS_BUCKET_NAME=${{ vars.LOGS_BUCKET_NAME_PROD }},MEMORY_BACKEND=vertex"
 
       - name: Configure docker for Artifact Registry
         run: |

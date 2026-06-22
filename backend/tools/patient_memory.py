@@ -2,40 +2,19 @@
 backend/tools/patient_memory.py
 Memory read tool and post-education write callback.
 
-Agent 3 uses the history tool to check new drugs against prior visits.
 Agent 4 triggers save_visit via after_agent_callback after successful output.
 patient_id is always taken from the verified ADK user_id — never from tool args.
 """
 import logging
-from collections.abc import Mapping
-from typing import Any
 
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.tools import FunctionTool
 from google.adk.tools.tool_context import ToolContext
-from pydantic import BaseModel
 
 from memory.memory_service import MemoryServiceWrapper
+from tools.pipeline_state import generics_from_resolved_state
 
 logger = logging.getLogger(__name__)
-
-
-def _generic_names_from_state(state: Mapping[str, Any]) -> list[str]:
-    """Extract lowercase generic drug names from session state."""
-    resolved = state.get("resolved_drugs", [])
-    names: list[str] = []
-    for item in resolved:
-        if isinstance(item, dict):
-            generic = item.get("generic_name") or item.get("generic")
-        elif isinstance(item, BaseModel):
-            generic = getattr(item, "generic_name", None)
-        else:
-            generic = getattr(item, "generic_name", None)
-        if generic:
-            names.append(str(generic).lower())
-    return names
-
-
 def create_patient_history_tool(
     memory_service: MemoryServiceWrapper,
 ) -> FunctionTool:
@@ -96,7 +75,7 @@ def create_memory_write_callback(
             return None
 
         patient_id = callback_context.user_id
-        resolved_drugs = _generic_names_from_state(dict(callback_context.state))
+        resolved_drugs = generics_from_resolved_state(callback_context.state)
         if not resolved_drugs:
             logger.warning(
                 "No resolved_drugs in session state for patient %s — skipping memory write",

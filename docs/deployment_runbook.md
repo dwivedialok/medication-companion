@@ -140,6 +140,7 @@ No Agent Runtime or auth broker redeploy needed.
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `infra-apply` fails: `gcp-sa-firebasehosting... does not exist` | Older Terraform tried to grant a non-existent Hosting service agent | Pull latest — that IAM binding was removed. Re-run `make infra-apply`. |
+| `make deploy-status` fails: Reasoning Engine failed to update + `language_map.yaml` in stderr | Agent Runtime upload includes only `backend/`; `ContextResolver` imports need `specs/schemas/language_map.yaml` | `make deploy` (runs `deploy-prep`, copies YAML into `backend/specs/`). Unrelated to `MEMORY_BACKEND`. |
 | Cloud Run: container failed to start on PORT 8080 | Startup import crash (check revision logs) | Common: `FileNotFoundError: .../specs/schemas/language_map.yaml` — rebuild broker image after `COPY specs` in Dockerfile. Re-run `make deploy-auth-broker`. |
 | `docker push` 403 / `failed to fetch anonymous token` | Docker not authenticated to Artifact Registry | `gcloud auth login` then `gcloud auth configure-docker us-central1-docker.pkg.dev --quiet`; re-run `make deploy-auth-broker` only (skip full `deploy-backend`). |
 | Browser → broker returns 403 | Auth broker still requires IAM auth (`--no-allow-unauthenticated`) | Firebase Hosting rewrites need public Cloud Run invoke. Re-run `make deploy-auth-broker` (uses `--allow-unauthenticated`; app still checks Firebase JWT). |

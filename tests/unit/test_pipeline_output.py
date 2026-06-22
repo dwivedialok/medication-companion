@@ -3,8 +3,14 @@ import json
 from types import SimpleNamespace
 
 from agents.agent1_reader import Gate1Reject, ReaderOutput
+from agents.agent3_safety import SafetyOutput
 from agents.agent4_education import EducationOutput
-from pipeline_output import find_education_output, find_gate1_reject
+from pipeline_output import (
+    find_education_output,
+    find_gate1_reject,
+    find_safety_output,
+    find_safety_tool_result,
+)
 
 
 def _model_event(author: str, payload: dict) -> SimpleNamespace:
@@ -116,3 +122,56 @@ def test_find_gate1_reject_from_reader_output_model():
     reject = find_gate1_reject(events)
     assert reject is not None
     assert reject.reason == "Low confidence"
+
+
+def test_find_safety_tool_result():
+    events = [
+        SimpleNamespace(
+            author="medication_safety",
+            id="evt-safety-tool",
+            output=None,
+            content=None,
+            actions=SimpleNamespace(state_delta={}),
+            get_function_calls=lambda: [],
+            get_function_responses=lambda: [
+                SimpleNamespace(
+                    name="check_prescription_interactions",
+                    response={
+                        "result": {
+                            "interactions": [
+                                {
+                                    "drug_a": "aspirin",
+                                    "drug_b": "nimesulide",
+                                    "severity": "HIGH",
+                                    "mechanism": "Dataset hit.",
+                                    "source": "current_visit",
+                                }
+                            ],
+                            "overall_severity": "HIGH",
+                            "pairs_checked": 6,
+                        }
+                    },
+                )
+            ],
+        )
+    ]
+    payload = find_safety_tool_result(events)
+    assert payload is not None
+    assert payload["pairs_checked"] == 6
+    assert len(payload["interactions"]) == 1
+
+
+def test_find_safety_output():
+    events = [
+        _set_model_response_event(
+            "medication_safety",
+            {
+                "interactions": [],
+                "overall_severity": "NONE",
+                "safe_to_proceed": True,
+            },
+        )
+    ]
+    safety = find_safety_output(events)
+    assert isinstance(safety, SafetyOutput)
+    assert safety.overall_severity == "NONE"

@@ -9,8 +9,9 @@ Defines the root_agent as a SequentialAgent coordinating:
 4. Patient Education (plain-language English explanation)
 5. Localisation + Audio (translate to patient's Indian language + TTS)
 
-Policy server gates (Day 5 §3.2) are wired as ADK callbacks:
-- image_intake_callback on Agent 1's after_agent_callback
+Policy server gates (Day 5 §3.2) and pipeline grounding callbacks:
+- image_intake_callback + pin_extracted_drug_names on Agent 1 (after_agent_callback)
+- apply_resolver_allowlist on Agent 2 (drops drugs not read by Agent 1)
 - output_policy_callback on the root SequentialAgent's after_agent_callback
 - qa_input_policy_callback on the root SequentialAgent's before_agent_callback
   (no-op until FEATURE_QA_ENABLED=true)
@@ -32,12 +33,28 @@ from policy import (
     output_policy_callback,
     qa_input_policy_callback,
 )
+from tools.pipeline_state import (
+    apply_resolver_allowlist,
+    pin_extracted_drug_names,
+    sync_resolver_state_for_safety,
+)
 
 memory_service = create_memory_service()
 
-reader_agent = create_reader_agent(after_agent_callback=image_intake_callback)
-resolver_agent = create_resolver_agent()
-safety_agent = create_safety_agent(memory_service=memory_service)
+
+async def reader_after_callbacks(callback_context):
+    """Policy image gate, then pin Agent 1 OCR names for downstream allowlist."""
+    await image_intake_callback(callback_context)
+    pin_extracted_drug_names(callback_context)
+    return None
+
+
+reader_agent = create_reader_agent(after_agent_callback=reader_after_callbacks)
+resolver_agent = create_resolver_agent(after_agent_callback=apply_resolver_allowlist)
+safety_agent = create_safety_agent(
+    memory_service=memory_service,
+    before_agent_callback=sync_resolver_state_for_safety,
+)
 education_agent = create_education_agent(memory_service=memory_service)
 localisation_agent = create_localisation_agent()
 

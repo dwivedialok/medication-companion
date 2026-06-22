@@ -23,9 +23,26 @@ import yaml
 logger = logging.getLogger(__name__)
 
 
-_LANGUAGE_MAP_PATH = (
-    Path(__file__).resolve().parents[2] / "specs" / "schemas" / "language_map.yaml"
-)
+def _language_map_path() -> Path:
+    """Resolve language_map.yaml for local repo layout and Agent Runtime deploy.
+
+    File lives at backend/policy/context_resolver.py, so:
+      parents[0] = backend/  → backend/specs/… (deploy-prep copy for Agent Runtime)
+      parents[1] = repo root   → specs/… (normal local checkout)
+    """
+    policy_dir = Path(__file__).resolve().parent
+    candidates = (
+        policy_dir.parents[0] / "specs" / "schemas" / "language_map.yaml",
+        policy_dir.parents[1] / "specs" / "schemas" / "language_map.yaml",
+    )
+    for path in candidates:
+        if path.is_file():
+            return path
+    searched = ", ".join(str(p) for p in candidates)
+    raise FileNotFoundError(
+        f"language_map.yaml not found (searched: {searched}). "
+        "Run `make deploy-prep` before Agent Runtime deploy."
+    )
 _PLACEHOLDER_RE = re.compile(r"\[\[([A-Z_][A-Z0-9_]*)\]\]")
 _DEFAULT_LANGUAGE = "en-IN"
 _VALID_SEVERITIES = {"HIGH", "MODERATE", "LOW", "INFO", "NONE"}
@@ -61,7 +78,7 @@ class RenderContext:
 
 
 def _load_language_map() -> dict[str, Any]:
-    with _LANGUAGE_MAP_PATH.open(encoding="utf-8") as fh:
+    with _language_map_path().open(encoding="utf-8") as fh:
         return yaml.safe_load(fh)
 
 

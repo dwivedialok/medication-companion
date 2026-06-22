@@ -27,7 +27,9 @@ APP_SA ?= medication-companion-app@$(GCP_PROJECT).iam.gserviceaccount.com
 # so we do NOT inject GOOGLE_CLOUD_LOCATION here — Agent Runtime will set it to
 # the engine's regional host (us-central1) and that stays correct for everything
 # except the Gemini API, which uses its own pinned global client.
-DEPLOY_ENV_VARS ?= DRUGS_DB_GCS_URI=$(DRUGS_DB_GCS_URI)
+# Cross-visit medication history uses VertexAiMemoryBankService on deployed Runtime.
+# Local dev keeps MEMORY_BACKEND=local in .env (see .env.example).
+DEPLOY_ENV_VARS ?= DRUGS_DB_GCS_URI=$(DRUGS_DB_GCS_URI),MEMORY_BACKEND=vertex
 
 # Agent Runtime inline upload is capped at 8 MB. backend/venv (~380 MB) must not
 # exist. drugs.db (~54 MB) is uploaded to GCS; india_brands.csv is copied into
@@ -38,8 +40,9 @@ deploy-prep:
 		echo "  rm -rf backend/venv   # use repo-root .venv via: uv sync"; \
 		exit 1; \
 	fi
-	mkdir -p backend/data
+	mkdir -p backend/data backend/specs/schemas
 	cp data/india_brands.csv backend/data/
+	cp specs/schemas/language_map.yaml backend/specs/schemas/
 	@if [ -f data/drugs.db ]; then \
 		gcloud storage cp data/drugs.db $(DRUGS_DB_GCS_URI) --quiet; \
 	fi

@@ -202,6 +202,7 @@ backend/local_storage/
 backend/.adk_cache/
 backend/venv/
 backend/data/
+backend/specs/
 *.sqlite
 *.sqlite3
 *.db
