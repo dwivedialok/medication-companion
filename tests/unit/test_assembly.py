@@ -82,3 +82,20 @@ def test_assembly_falls_back_to_safety_output():
     )
     assert len(result.interactions) == 1
     assert result.overall_severity == "HIGH"
+
+
+def test_assembly_tags_existing_from_prior_visit_generics():
+    safety_tool = {
+        "interactions": [],
+        "overall_severity": "HIGH",
+        "pairs_checked": 6,
+        "prior_visit_generics": ["aspirin", "nimesulide", "warfarin", "metronidazole"],
+    }
+    result = assemble_prescription_result(
+        "sess-3",
+        _education(),
+        None,
+        safety_tool=safety_tool,
+    )
+    assert len(result.resolved_drugs) == 1
+    assert result.resolved_drugs[0].tag == "EXISTING"

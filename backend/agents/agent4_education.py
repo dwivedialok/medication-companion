@@ -5,17 +5,14 @@ Agent 4: Patient Education
 Responsibility: Generate a plain-language explanation of the safety findings
 calibrated to severity. Always ends with a consult-your-doctor redirect.
 
-After completing successfully, writes the resolved drug list to memory
-(via after_agent_callback in main.py) so future visits have this history.
+Memory persistence runs from the root agent after_agent_callback (see agent.py).
 
-Delegates to Agent 5 (Localisation) via A2A after generating the English explanation.
+Delegates to Agent 5 (Localisation) after generating the English explanation.
 """
 from google.adk.agents import LlmAgent
 from pydantic import BaseModel, Field
 
 from llm_models import PATIENT_EDUCATION_LLM, gemini
-from memory.memory_service import MemoryServiceWrapper
-from tools.patient_memory import create_memory_write_callback
 
 
 # ── Data contracts ────────────────────────────────────────────────────────────
@@ -63,14 +60,13 @@ Rules:
 """
 
 
-def create_education_agent(memory_service: MemoryServiceWrapper) -> LlmAgent:
+def create_education_agent() -> LlmAgent:
     """Create and return the Patient Education agent."""
     return LlmAgent(
         name="patient_education",
         model=gemini(PATIENT_EDUCATION_LLM),
         instruction=EDUCATION_INSTRUCTION,
         output_schema=EducationOutput,
-        after_agent_callback=create_memory_write_callback(memory_service),
         description=(
             "Generates plain-language explanations of drug interaction findings, "
             "calibrated to severity, with a mandatory consult-your-doctor redirect."

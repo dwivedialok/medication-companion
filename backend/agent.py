@@ -12,6 +12,7 @@ Defines the root_agent as a SequentialAgent coordinating:
 Policy server gates (Day 5 §3.2) and pipeline grounding callbacks:
 - image_intake_callback + pin_extracted_drug_names on Agent 1 (after_agent_callback)
 - apply_resolver_allowlist on Agent 2 (drops drugs not read by Agent 1)
+- persist_visit_to_memory on the root SequentialAgent's after_agent_callback
 - output_policy_callback on the root SequentialAgent's after_agent_callback
 - qa_input_policy_callback on the root SequentialAgent's before_agent_callback
   (no-op until FEATURE_QA_ENABLED=true)
@@ -34,8 +35,10 @@ from policy import (
     output_policy_callback,
     qa_input_policy_callback,
 )
+from tools.patient_memory import persist_visit_to_memory
 from tools.pipeline_state import (
     apply_resolver_allowlist,
+    create_preload_patient_memory_callback,
     pin_extracted_drug_names,
     sync_resolver_state_for_safety,
 )
@@ -51,18 +54,22 @@ async def reader_after_callbacks(callback_context):
 
 
 reader_agent = create_reader_agent(after_agent_callback=reader_after_callbacks)
-resolver_agent = create_resolver_agent(after_agent_callback=apply_resolver_allowlist)
+resolver_agent = create_resolver_agent(
+    before_agent_callback=create_preload_patient_memory_callback(memory_service),
+    after_agent_callback=apply_resolver_allowlist,
+)
 safety_agent = create_safety_agent(
     memory_service=memory_service,
     before_agent_callback=sync_resolver_state_for_safety,
 )
-education_agent = create_education_agent(memory_service=memory_service)
+education_agent = create_education_agent()
 localisation_agent = create_localisation_agent()
 
 
 async def root_after_callbacks(callback_context):
-    """Output policy gate, then fire-and-forget LLM-as-Judge (Day 4 §4.2–4.3)."""
+    """Policy gate, Memory Bank write, then fire-and-forget LLM-as-Judge."""
     await output_policy_callback(callback_context)
+    await persist_visit_to_memory(callback_context, memory_service)
     await schedule_pipeline_eval(callback_context)
     return None
 

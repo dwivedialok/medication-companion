@@ -339,6 +339,15 @@ Broker log: `Running pipeline via Agent Runtime` (not `local ADK Runner`).
 **Memory smoke (2nd run):** reuse `DEV_PATIENT_ID=playground-smoke-001`, upload a Rx that
 interacts with drugs from the first visit; Agent 3 should emit a `cross_visit` interaction.
 
+**Verify Memory Bank write (after deploy):**
+
+```bash
+uv run python scripts/inspect_memory_bank.py --patient-id YOUR_FIREBASE_UID
+```
+
+**Pass (run 1):** `Parsed visit records: 1`. Cloud Logging: `Saved visit to memory for patient …`.
+**Pass (run 2):** `Preloaded N prior generic(s) from 1 visit(s)` and `N prior generic(s) in memory` in safety check log.
+
 #### Fail / limits (A2b / A2b-broker)
 
 - Does **not** test Firebase JWT, signed upload URLs via Hosting, or Flutter UI → use **A3** or **C**.

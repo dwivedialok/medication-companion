@@ -30,7 +30,10 @@ APP_SA ?= medication-companion-app@$(GCP_PROJECT).iam.gserviceaccount.com
 # except the Gemini API, which uses its own pinned global client.
 # Cross-visit medication history uses VertexAiMemoryBankService on deployed Runtime.
 # Local dev keeps MEMORY_BACKEND=local in .env (see .env.example).
-DEPLOY_ENV_VARS ?= DRUGS_DB_GCS_URI=$(DRUGS_DB_GCS_URI),MEMORY_BACKEND=vertex,LOGS_BUCKET_NAME=$(LOGS_BUCKET_NAME),OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=NO_CONTENT
+# Prompt-response logging: EVENT_ONLY in dev/staging (Traces Inputs/Outputs);
+# NO_CONTENT in prod (metadata only). Override: OTEL_GENAI_CAPTURE_MODE=NO_CONTENT
+OTEL_GENAI_CAPTURE_MODE ?= EVENT_ONLY
+DEPLOY_ENV_VARS ?= DRUGS_DB_GCS_URI=$(DRUGS_DB_GCS_URI),MEMORY_BACKEND=vertex,LOGS_BUCKET_NAME=$(LOGS_BUCKET_NAME),OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=$(OTEL_GENAI_CAPTURE_MODE)
 
 # Agent Runtime inline upload is capped at 8 MB. backend/venv (~380 MB) must not
 # exist. drugs.db (~54 MB) is uploaded to GCS; india_brands.csv is copied into

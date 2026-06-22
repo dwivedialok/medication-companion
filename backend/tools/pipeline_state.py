@@ -15,12 +15,13 @@ from google.adk.agents.callback_context import CallbackContext
 
 from agents.agent1_reader import ExtractedDrug, ReaderOutput
 from agents.agent2_resolver import ResolvedDrug, ResolverOutput
-from tools.drug_normalize import normalize_brand
+from tools.drug_normalize import normalize_brand, normalize_generic
 
 logger = logging.getLogger(__name__)
 
 EXTRACTED_RAW_NAMES_KEY = "extracted_raw_names"
 RESOLVED_DRUGS_KEY = "resolved_drugs"
+PRIOR_VISIT_GENERICS_KEY = "prior_visit_generics"
 
 # Common Rx line prefixes/tokens — not useful alone for brand matching.
 _NOISE_TOKENS = frozenset(
@@ -168,6 +169,38 @@ def filter_resolver_to_allowlist(
     return ResolverOutput(resolved_drugs=kept, unresolved_count=unresolved)
 
 
+def prior_generics_from_visits(visits: list[dict[str, Any]] | None) -> set[str]:
+    """Collect normalized generics from prior visit records in Memory Bank."""
+    generics: set[str] = set()
+    for visit in visits or []:
+        for name in visit.get("resolved_drugs") or []:
+            generic = normalize_generic(str(name))
+            if generic:
+                generics.add(generic)
+    return generics
+
+
+def tag_resolver_against_memory(
+    resolver_output: ResolverOutput,
+    prior_generics: set[str],
+) -> ResolverOutput:
+    """Set NEW vs EXISTING from prior visit generics (deterministic, not LLM)."""
+    if not prior_generics:
+        return resolver_output
+
+    tagged: list[ResolvedDrug] = []
+    for drug in resolver_output.resolved_drugs:
+        if drug.tag == "UNRESOLVED":
+            tagged.append(drug)
+            continue
+        generic = normalize_generic(drug.generic_name)
+        tag = "EXISTING" if generic and generic in prior_generics else "NEW"
+        tagged.append(drug.model_copy(update={"tag": tag}))
+
+    unresolved = sum(1 for drug in tagged if drug.tag == "UNRESOLVED")
+    return ResolverOutput(resolved_drugs=tagged, unresolved_count=unresolved)
+
+
 def resolver_output_to_state(resolver_output: ResolverOutput) -> list[dict[str, Any]]:
     """Serialize ResolverOutput for session state (memory write + safety tool)."""
     return [drug.model_dump() for drug in resolver_output.resolved_drugs]
@@ -193,7 +226,7 @@ def generics_from_resolved_state(state: Mapping[str, Any]) -> list[str]:
 
 
 async def apply_resolver_allowlist(callback_context: CallbackContext) -> None:
-    """ADK after_agent_callback on Agent 2 — enforce Agent 1 allowlist."""
+    """ADK after_agent_callback on Agent 2 — allowlist + NEW/EXISTING from memory."""
     output = callback_context.output
     if output is None:
         return None
@@ -206,14 +239,41 @@ async def apply_resolver_allowlist(callback_context: CallbackContext) -> None:
             ResolverOutput.model_validate(output), allowed
         )
 
+    prior_list = callback_context.state.get(PRIOR_VISIT_GENERICS_KEY, [])
+    prior_generics = set(prior_list) if prior_list else set()
+    if prior_generics:
+        filtered = tag_resolver_against_memory(filtered, prior_generics)
+
     callback_context.output = filtered
     callback_context.state[RESOLVED_DRUGS_KEY] = resolver_output_to_state(filtered)
+    existing_count = sum(1 for d in filtered.resolved_drugs if d.tag == "EXISTING")
     logger.info(
-        "Resolver allowlist applied for session %s: kept %d drug(s)",
+        "Resolver allowlist applied for session %s: kept %d drug(s), %d EXISTING",
         callback_context.session.id,
         len(filtered.resolved_drugs),
+        existing_count,
     )
     return None
+
+
+def create_preload_patient_memory_callback(memory_service: Any):
+    """ADK before_agent_callback on Agent 2 — load Memory Bank into session state."""
+
+    async def preload_patient_memory(callback_context: CallbackContext) -> None:
+        visits = await memory_service.get_medications_for_patient(
+            callback_context.user_id
+        )
+        prior = prior_generics_from_visits(visits)
+        callback_context.state[PRIOR_VISIT_GENERICS_KEY] = sorted(prior)
+        logger.info(
+            "Preloaded %d prior generic(s) from %d visit(s) for patient %s",
+            len(prior),
+            len(visits),
+            callback_context.user_id,
+        )
+        return None
+
+    return preload_patient_memory
 
 
 async def sync_resolver_state_for_safety(callback_context: CallbackContext) -> None:
@@ -261,6 +321,11 @@ async def sync_resolver_state_for_safety(callback_context: CallbackContext) -> N
             callback_context.session.id,
         )
         return None
+
+    prior_list = callback_context.state.get(PRIOR_VISIT_GENERICS_KEY, [])
+    prior_generics = set(prior_list) if prior_list else set()
+    if prior_generics:
+        filtered = tag_resolver_against_memory(filtered, prior_generics)
 
     callback_context.state[RESOLVED_DRUGS_KEY] = resolver_output_to_state(filtered)
     logger.info(

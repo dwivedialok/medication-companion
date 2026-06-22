@@ -7,9 +7,11 @@ from __future__ import annotations
 from typing import Any
 
 from agents.agent3_safety import SafetyOutput
+from agents.agent2_resolver import ResolverOutput
 from agents.agent4_education import EducationOutput
 from agents.agent5_localisation import LocalisationOutput
 from schemas import InteractionFinding, PrescriptionResult, ResolvedDrug
+from tools.drug_normalize import normalize_generic
 
 
 def _interactions_from_tool(payload: dict[str, Any]) -> list[InteractionFinding]:
@@ -42,11 +44,45 @@ def _interactions_from_safety_output(safety: SafetyOutput) -> list[InteractionFi
     ]
 
 
+def _tags_from_resolver(resolver: ResolverOutput | None) -> dict[str, str]:
+    if resolver is None:
+        return {}
+    tags: dict[str, str] = {}
+    for drug in resolver.resolved_drugs:
+        generic = normalize_generic(drug.generic_name)
+        if generic:
+            tags[generic] = drug.tag
+    return tags
+
+
+def _prior_generics_from_safety_tool(safety_tool: dict[str, Any] | None) -> set[str]:
+    if not safety_tool:
+        return set()
+    prior = safety_tool.get("prior_visit_generics") or []
+    return {normalize_generic(str(name)) for name in prior if normalize_generic(str(name))}
+
+
+def _drug_tag(
+    generic_name: str,
+    *,
+    prior_generics: set[str],
+    resolver_tags: dict[str, str],
+    fallback: str,
+) -> str:
+    generic = normalize_generic(generic_name)
+    if not generic:
+        return fallback
+    if generic in prior_generics:
+        return "EXISTING"
+    return resolver_tags.get(generic, fallback)
+
+
 def assemble_prescription_result(
     session_id: str,
     education: EducationOutput,
     localisation: LocalisationOutput | dict | None,
     *,
+    resolver: ResolverOutput | None = None,
     safety_tool: dict[str, Any] | None = None,
     safety_output: SafetyOutput | None = None,
 ) -> PrescriptionResult:
@@ -58,14 +94,23 @@ def assemble_prescription_result(
         translated = loc.get("translated_text", education.summary)
         audio_url = loc.get("audio_url", "")
 
-    resolved_drugs = [
-        ResolvedDrug(
-            raw_name=card.display_name,
-            generic_name=card.generic_equivalent,
-            tag=card.tag,
+    resolver_tags = _tags_from_resolver(resolver)
+    prior_generics = _prior_generics_from_safety_tool(safety_tool)
+    resolved_drugs = []
+    for card in education.drug_cards or []:
+        tag = _drug_tag(
+            card.generic_equivalent,
+            prior_generics=prior_generics,
+            resolver_tags=resolver_tags,
+            fallback=card.tag,
         )
-        for card in (education.drug_cards or [])
-    ]
+        resolved_drugs.append(
+            ResolvedDrug(
+                raw_name=card.display_name,
+                generic_name=card.generic_equivalent,
+                tag=tag,
+            )
+        )
 
     if safety_tool and (
         safety_tool.get("pairs_checked", 0) > 0 or safety_tool.get("interactions")

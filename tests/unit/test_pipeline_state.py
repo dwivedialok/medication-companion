@@ -9,9 +9,11 @@ from tools.pipeline_state import (
     filter_resolver_to_allowlist,
     generics_from_resolved_state,
     normalized_raw_names,
+    prior_generics_from_visits,
     raw_names_from_reader_output,
     resolver_output_to_state,
     resolver_raw_on_allowlist,
+    tag_resolver_against_memory,
 )
 
 
@@ -125,3 +127,38 @@ def test_filter_resolver_matches_ocr_line_to_short_brand():
 def test_resolver_raw_on_allowlist_token_overlap():
     assert resolver_raw_on_allowlist("Ecosprin", ["Tab Ecosprin 75 mg"])
     assert not resolver_raw_on_allowlist("FakeDrug", ["Tab Ecosprin 75 mg"])
+
+
+def test_prior_generics_from_visits():
+    visits = [
+        {"resolved_drugs": ["aspirin", "warfarin"], "visit_timestamp": "t1"},
+        {"resolved_drugs": ["metronidazole"], "visit_timestamp": "t2"},
+    ]
+    assert prior_generics_from_visits(visits) == {
+        "aspirin",
+        "warfarin",
+        "metronidazole",
+    }
+
+
+def test_tag_resolver_against_memory_marks_existing():
+    output = ResolverOutput(
+        resolved_drugs=[
+            ResolvedDrug(
+                raw_name="Ecosprin",
+                generic_name="aspirin",
+                tag="NEW",
+                confidence=1.0,
+            ),
+            ResolvedDrug(
+                raw_name="Nise",
+                generic_name="nimesulide",
+                tag="NEW",
+                confidence=1.0,
+            ),
+        ],
+        unresolved_count=0,
+    )
+    tagged = tag_resolver_against_memory(output, {"aspirin"})
+    assert tagged.resolved_drugs[0].tag == "EXISTING"
+    assert tagged.resolved_drugs[1].tag == "NEW"

@@ -119,6 +119,7 @@ def compute_prescription_safety(
         "pairs_checked": len(checked),
         "current_generics": current,
         "history_generics": history_only,
+        "prior_visit_generics": history,
     }
 
 
@@ -150,15 +151,17 @@ def create_safety_check_tool(
                 "pairs_checked": 0,
                 "current_generics": [],
                 "history_generics": [],
+                "prior_visit_generics": [],
             }
 
         history = await memory_service.get_medications_for_patient(tool_context.user_id)
         result = compute_prescription_safety(current, history)
         logger.info(
-            "Safety check for patient %s: %d generic(s), %d pair(s) checked, "
-            "%d interaction(s) from dataset",
+            "Safety check for patient %s: %d generic(s), %d prior generic(s) in memory, "
+            "%d pair(s) checked, %d interaction(s) from dataset",
             tool_context.user_id,
             len(result["current_generics"]),
+            len(result["prior_visit_generics"]),
             result["pairs_checked"],
             len(result["interactions"]),
         )

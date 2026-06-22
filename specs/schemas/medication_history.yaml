@@ -37,7 +37,7 @@ medication_history:
       severity_summary: "HIGH"
 
 write_policy:
-  trigger: after_agent_callback on patient_education agent
+  trigger: root SequentialAgent after_agent_callback (persist_visit_to_memory)
   stores: [visit_timestamp, resolved_drugs, severity_summary]
   never_stores:
     - prescription images

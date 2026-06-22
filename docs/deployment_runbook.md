@@ -156,6 +156,37 @@ No Agent Runtime or auth broker redeploy needed.
 | `ENVIRONMENT` | Flutter `--dart-define` + broker env | Both (toggles dev bypass) |
 | `BIGQUERY_DATASET` | Agent Runtime env (default `medication_companion`) | `backend/evaluation/llm_judge.py` → `eval_log` writes |
 | `LOGS_BUCKET_NAME` | `make deploy` / CI (`{project}-medication-companion-logs`) | Prompt-response telemetry (`backend/app_utils/telemetry.py`) |
+| `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | `make deploy` / CI | `EVENT_ONLY` (dev/staging) or `NO_CONTENT` (prod) — see §7.1 |
+
+### §7.1 Prompt-response logging (dev vs prod)
+
+| Environment | Mode | What you get in Traces |
+|-------------|------|------------------------|
+| **Dev / staging** | `EVENT_ONLY` | Full prompts/responses in Inputs/Outputs; GCS `completions/` |
+| **Prod (default)** | `NO_CONTENT` | Span DAG, latency, tokens — no prompt/response text |
+| **Prod break-glass** | Temporarily `EVENT_ONLY` | One synthetic session, then revert |
+
+**Manual deploy (Make):**
+
+```bash
+# Dev — default after this change
+make deploy-backend GCP_PROJECT=medication-companion-dev
+
+# Prod — always pass NO_CONTENT explicitly
+make deploy-backend GCP_PROJECT=medication-companion-prod OTEL_GENAI_CAPTURE_MODE=NO_CONTENT
+```
+
+**Prod ad-hoc debug (synthetic Rx only):**
+
+```bash
+agents-cli deploy --project $PROD_PROJECT --region us-central1 \
+  --update-env-vars="OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=EVENT_ONLY,LOGS_BUCKET_NAME=${PROD_PROJECT}-medication-companion-logs"
+# run one test session → inspect Traces or gs://…/completions/
+agents-cli deploy --project $PROD_PROJECT --region us-central1 \
+  --update-env-vars="OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=NO_CONTENT,LOGS_BUCKET_NAME=${PROD_PROJECT}-medication-companion-logs"
+```
+
+Use committed fixtures (`data/sample/smoke_4drug_2interactions.png`), not real patient uploads. Optional: delete the session’s objects under `gs://…/completions/` after debugging.
 
 ## §8 Troubleshooting one-liners
 

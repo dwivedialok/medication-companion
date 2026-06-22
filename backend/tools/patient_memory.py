@@ -1,8 +1,9 @@
 """
 backend/tools/patient_memory.py
-Memory read tool and post-education write callback.
+Memory read tool and root-level visit persistence.
 
-Agent 4 triggers save_visit via after_agent_callback after successful output.
+Memory writes run from the root SequentialAgent after_agent_callback because
+sub-agent after_agent_callback hooks are not reliably invoked on Agent Runtime.
 patient_id is always taken from the verified ADK user_id — never from tool args.
 """
 import logging
@@ -12,9 +13,16 @@ from google.adk.tools import FunctionTool
 from google.adk.tools.tool_context import ToolContext
 
 from memory.memory_service import MemoryServiceWrapper
+from pipeline_output import (
+    find_education_output,
+    find_gate1_reject,
+    find_safety_tool_result,
+)
 from tools.pipeline_state import generics_from_resolved_state
 
 logger = logging.getLogger(__name__)
+
+
 def create_patient_history_tool(
     memory_service: MemoryServiceWrapper,
 ) -> FunctionTool:
@@ -42,58 +50,63 @@ def create_patient_history_tool(
     return FunctionTool(get_patient_medication_history)
 
 
-def create_memory_write_callback(
+def _resolved_generics_for_memory(callback_context: CallbackContext) -> list[str]:
+    """Resolved generic names from session state, with safety-tool fallback."""
+    resolved = generics_from_resolved_state(callback_context.state)
+    if resolved:
+        return resolved
+
+    safety = find_safety_tool_result(callback_context.session.events or []) or {}
+    current = safety.get("current_generics") or []
+    return [str(name).lower() for name in current if name]
+
+
+async def persist_visit_to_memory(
+    callback_context: CallbackContext,
     memory_service: MemoryServiceWrapper,
-):
-    """Return an ADK after_agent_callback that persists the visit to memory."""
+) -> None:
+    """
+    Persist this visit to Memory Bank after a successful pipeline run.
 
-    async def memory_write_callback(
-        callback_context: CallbackContext,
-    ) -> None:
-        from agents.agent4_education import EducationOutput
+    Intended for the root SequentialAgent after_agent_callback on Agent Runtime.
+    """
+    session_id = callback_context.session.id
+    events = callback_context.session.events or []
 
-        output = callback_context.output
-        if output is None:
-            return None
-
-        if isinstance(output, dict):
-            try:
-                education_output = EducationOutput.model_validate(output)
-            except Exception:
-                logger.warning(
-                    "Education output validation failed for session %s — skipping memory write",
-                    callback_context.session.id,
-                )
-                return None
-        elif isinstance(output, EducationOutput):
-            education_output = output
-        else:
-            logger.warning(
-                "Unexpected education output type %s — skipping memory write",
-                type(output).__name__,
-            )
-            return None
-
-        patient_id = callback_context.user_id
-        resolved_drugs = generics_from_resolved_state(callback_context.state)
-        if not resolved_drugs:
-            logger.warning(
-                "No resolved_drugs in session state for patient %s — skipping memory write",
-                patient_id,
-            )
-            return None
-
-        await memory_service.save_visit(
-            patient_id=patient_id,
-            resolved_drug_names=resolved_drugs,
-            severity=education_output.overall_severity,
-        )
+    if find_gate1_reject(events):
         logger.info(
-            "Saved visit to memory for patient %s (%d drugs, severity=%s)",
-            patient_id,
-            len(resolved_drugs),
-            education_output.overall_severity,
+            "Skipping memory write — Gate 1 reject (session=%s)",
+            session_id,
         )
         return None
 
-    return memory_write_callback
+    education = find_education_output(events)
+    if education is None:
+        logger.info(
+            "Skipping memory write — no education output (session=%s)",
+            session_id,
+        )
+        return None
+
+    patient_id = callback_context.user_id
+    resolved_drugs = _resolved_generics_for_memory(callback_context)
+    if not resolved_drugs:
+        logger.warning(
+            "No resolved_drugs for patient %s — skipping memory write (session=%s)",
+            patient_id,
+            session_id,
+        )
+        return None
+
+    await memory_service.save_visit(
+        patient_id=patient_id,
+        resolved_drug_names=resolved_drugs,
+        severity=education.overall_severity,
+    )
+    logger.info(
+        "Saved visit to memory for patient %s (%d drugs, severity=%s)",
+        patient_id,
+        len(resolved_drugs),
+        education.overall_severity,
+    )
+    return None

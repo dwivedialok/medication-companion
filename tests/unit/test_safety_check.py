@@ -64,6 +64,7 @@ def test_compute_safety_emits_only_dataset_hits():
     assert hit["drug_a"] in ("aspirin", "warfarin")
     assert result["overall_severity"] == "HIGH"
     assert result["safe_to_proceed"] is False
+    assert result["prior_visit_generics"] == ["warfarin"]
 
 
 def test_compute_safety_skips_duplicate_cross_visit_pair():

@@ -51,12 +51,16 @@ Lookup order for each extracted drug:
 2. If it is an FDC, also call combo_splitter(drug_name) to get components
 3. If both return no result: tag as UNRESOLVED
 
-For EXISTING/NEW tagging: check session state for this patient's prior drug list.
+For EXISTING/NEW tagging: default all drugs to NEW; the pipeline retags against
+Memory Bank after you resolve generics.
 Each ResolvedDrug.raw_name MUST match an extracted drug name from the reader.
 """
 
 
-def create_resolver_agent(after_agent_callback=None) -> LlmAgent:
+def create_resolver_agent(
+    before_agent_callback=None,
+    after_agent_callback=None,
+) -> LlmAgent:
     """Create and return the Medication Resolver agent."""
     kwargs: dict = {
         "name": "medication_resolver",
@@ -69,6 +73,8 @@ def create_resolver_agent(after_agent_callback=None) -> LlmAgent:
             "NEW or EXISTING using RxNav API and India brand name CSV."
         ),
     }
+    if before_agent_callback is not None:
+        kwargs["before_agent_callback"] = before_agent_callback
     if after_agent_callback is not None:
         kwargs["after_agent_callback"] = after_agent_callback
     return LlmAgent(**kwargs)

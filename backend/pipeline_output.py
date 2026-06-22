@@ -13,6 +13,7 @@ from typing import Any, Callable, TypeVar
 from pydantic import BaseModel, ValidationError
 
 from agents.agent1_reader import Gate1Reject, ReaderOutput
+from agents.agent2_resolver import ResolverOutput
 from agents.agent3_safety import SafetyOutput
 from agents.agent4_education import EducationOutput
 from agents.agent5_localisation import LocalisationOutput
@@ -165,6 +166,15 @@ def find_education_output(events: list) -> EducationOutput | None:
         agent_name="patient_education",
         model_cls=EducationOutput,
         match=lambda data: "drug_cards" in data,
+    )
+
+
+def find_resolver_output(events: list) -> ResolverOutput | None:
+    return extract_agent_output(
+        events,
+        agent_name="medication_resolver",
+        model_cls=ResolverOutput,
+        match=lambda data: "resolved_drugs" in data,
     )
 
 
