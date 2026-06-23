@@ -5,17 +5,14 @@ Agent 4: Patient Education
 Responsibility: Generate a plain-language explanation of the safety findings
 calibrated to severity. Always ends with a consult-your-doctor redirect.
 
-After completing successfully, writes the resolved drug list to memory
-(via after_agent_callback in main.py) so future visits have this history.
+Memory persistence runs from the root agent after_agent_callback (see agent.py).
 
-Delegates to Agent 5 (Localisation) via A2A after generating the English explanation.
+Delegates to Agent 5 (Localisation) after generating the English explanation.
 """
 from google.adk.agents import LlmAgent
 from pydantic import BaseModel, Field
 
-from llm_models import PATIENT_EDUCATION_LLM
-from memory.memory_service import MemoryServiceWrapper
-from tools.patient_memory import create_memory_write_callback
+from llm_models import PATIENT_EDUCATION_LLM, gemini
 
 
 # ── Data contracts ────────────────────────────────────────────────────────────
@@ -55,19 +52,21 @@ Rules:
 - Calibrate tone to severity: HIGH = urgent but calm, LOW = informative, INFO = neutral
 - Every output MUST end with: "Please discuss this with your doctor or pharmacist before making any changes."
 - Drug names in your output MUST only come from the resolved_drugs list
+- interaction_cards MUST mirror the Medication Safety agent findings exactly — do not add, remove, or invent pairs
+- drug_pair format: "generic_a+generic_b" using generic names from the safety findings (not brand names joined with "and")
+- overall_severity MUST match the Medication Safety agent output
 - "questions_for_doctor" should be specific and actionable
 - Output ONLY an EducationOutput JSON object
 """
 
 
-def create_education_agent(memory_service: MemoryServiceWrapper) -> LlmAgent:
+def create_education_agent() -> LlmAgent:
     """Create and return the Patient Education agent."""
     return LlmAgent(
         name="patient_education",
-        model=PATIENT_EDUCATION_LLM,
+        model=gemini(PATIENT_EDUCATION_LLM),
         instruction=EDUCATION_INSTRUCTION,
         output_schema=EducationOutput,
-        after_agent_callback=create_memory_write_callback(memory_service),
         description=(
             "Generates plain-language explanations of drug interaction findings, "
             "calibrated to severity, with a mandatory consult-your-doctor redirect."

@@ -2,25 +2,26 @@
 backend/tools/guardrails.py
 Input and output guardrails as ADK before/after_agent_callbacks (Day 4: Safety).
 
-Input guardrail (before_agent_callback):
-  - Rejects images with no detectable drug names
-  - Rejects diagnostic questions ("do I have", "am I sick")
-  - Rejects dosing advice requests ("how much should I take")
-  - Detects prompt injection patterns
+V1 (image-only) scope:
+  - Input regexes (diagnostic / dosing / injection) target free-text prompts
+    that don't exist in the image-only flow. They are gated behind
+    FEATURE_QA_ENABLED and unreachable in v1; full Policy Server refactor
+    lives in backend/policy/ (see plan §3.2). Until then, this callback
+    is effectively a no-op.
 
-Output guardrail (after_agent_callback):
+Output guardrail (after_agent_callback) is the active path:
   - Strips any diagnostic language that slipped through
-  - Ensures consult-your-doctor disclaimer is present
+  - Ensures the consult-your-doctor disclaimer is present
   - Verifies drug names in output match resolved_drugs (hallucination check)
 
 Running guardrails as callbacks keeps them architecturally separate
 from agent logic — agents do not need to know guardrails exist.
 """
-import re
 import logging
+import os
+import re
 from typing import Any
 
-from fastapi import HTTPException, status
 from google.adk.agents.callback_context import CallbackContext
 from google.genai import types
 from pydantic import BaseModel
@@ -113,40 +114,48 @@ def _sanitize_output(output_data: Any, *, session_id: str) -> Any:
 
 # ── Input guardrail ───────────────────────────────────────────────────────────
 
+FEATURE_QA_ENABLED = os.getenv("FEATURE_QA_ENABLED", "false").lower() == "true"
+
+
+def _reject(message: str) -> types.Content:
+    """Build a Gate-1 rejection Content that short-circuits the agent pipeline."""
+    return types.Content(role="model", parts=[types.Part.from_text(text=message)])
+
+
 async def input_guardrail_callback(
     callback_context: CallbackContext,
 ) -> types.Content | None:
     """
     ADK before_agent_callback.
-    Raises HTTP 400 for rejected requests; returns None if safe.
+
+    V1 (image-only): returns None — no free-text input means no diagnostic /
+    dosing / injection regex matches are reachable. Set FEATURE_QA_ENABLED=true
+    once the Q&A extension lands to re-activate input-side gating.
+
+    When active, returns a short-circuit Content with a user-friendly rejection
+    message instead of raising; ADK surfaces that as the agent response.
     """
+    if not FEATURE_QA_ENABLED:
+        return None
+
     text_content = _extract_text_from_content(callback_context.user_content)
     session_id = callback_context.session.id
 
     if _matches_any(text_content, INJECTION_PATTERNS):
         logger.warning("Prompt injection attempt detected in session %s", session_id)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Request rejected. Please describe your prescription only.",
-        )
+        return _reject("Request rejected. Please describe your prescription only.")
 
     if _matches_any(text_content, DIAGNOSTIC_PATTERNS):
         logger.info("Diagnostic question rejected in session %s", session_id)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "This tool analyses prescriptions only. "
-                "Please discuss health questions with your doctor."
-            ),
+        return _reject(
+            "This tool analyses prescriptions only. "
+            "Please discuss health questions with your doctor."
         )
 
     if _matches_any(text_content, DOSING_PATTERNS):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "This tool cannot give dosing advice. "
-                "Please discuss dosage questions with your doctor or pharmacist."
-            ),
+        return _reject(
+            "This tool cannot give dosing advice. "
+            "Please discuss dosage questions with your doctor or pharmacist."
         )
 
     return None

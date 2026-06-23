@@ -1,0 +1,78 @@
+# Regional language mapping — Agent 5 localisation + TTS
+# Implementation: backend/tools/tts.py _VOICE_MAP
+# Consumed by: backend/policy/context_resolver.py (Step 3)
+
+supported_languages:
+  hi-IN:
+    display_name: Hindi
+    tts_voice: hi-IN-Standard-A
+    severity_tone_phrases:
+      HIGH: urgent and calm — emphasise discussing with doctor soon
+      MODERATE: clear and reassuring
+      LOW: informative and neutral
+      INFO: neutral and factual
+      NONE: friendly and informative
+    disclaimer_translation: >-
+      यह केवल जानकारी के लिए है। कोई भी बदलाव करने से पहले कृपया अपने
+      डॉक्टर या फार्मासिस्ट से चर्चा करें।
+
+  ta-IN:
+    display_name: Tamil
+    tts_voice: ta-IN-Standard-A
+    severity_tone_phrases:
+      HIGH: urgent and calm
+      MODERATE: clear and reassuring
+      LOW: informative and neutral
+      INFO: neutral and factual
+      NONE: friendly and informative
+    disclaimer_translation: >-
+      இது தகவல் நோக்கத்திற்காக மட்டுமே. எந்த மாற்றமும் செய்வதற்கு முன்
+      உங்கள் மருத்துவர் அல்லது மருந்தாளரிடம் கலந்தாலோசிக்கவும்.
+
+  te-IN:
+    display_name: Telugu
+    tts_voice: te-IN-Standard-A
+    severity_tone_phrases:
+      HIGH: urgent and calm
+      MODERATE: clear and reassuring
+      LOW: informative and neutral
+      INFO: neutral and factual
+      NONE: friendly and informative
+    disclaimer_translation: >-
+      ఇది సమాచారం కోసం మాత్రమే. ఏదైనా మార్పు చేయడానికి ముందు దయచేసి
+      మీ వైద్యుడు లేదా ఫార్మసిస్ట్‌తో చర్చించండి.
+
+  bn-IN:
+    display_name: Bengali
+    tts_voice: bn-IN-Standard-A
+    severity_tone_phrases:
+      HIGH: urgent and calm
+      MODERATE: clear and reassuring
+      LOW: informative and neutral
+      INFO: neutral and factual
+      NONE: friendly and informative
+    disclaimer_translation: >-
+      এটি শুধুমাত্র তথ্যের জন্য। কোনো পরিবর্তন করার আগে অনুগ্রহ করে
+      আপনার ডাক্তার বা ফার্মাসিস্টের সাথে আলোচনা করুন।
+
+  en-IN:
+    display_name: English (India)
+    tts_voice: en-IN-Standard-A
+    severity_tone_phrases:
+      HIGH: urgent but calm
+      MODERATE: clear and reassuring
+      LOW: informative
+      INFO: neutral
+      NONE: friendly
+    disclaimer_translation: >-
+      This is for information only. Please discuss this with your doctor
+      or pharmacist before making any changes.
+
+context_resolver_placeholders:
+  # Resolved at runtime by backend/policy/context_resolver.py (Step 3)
+  PATIENT_LANGUAGE: BCP-47 code from Flutter UI selection
+  SEVERITY_TONE: severity_tone_phrases[overall_severity]
+  PATIENT_GIVEN_NAME: optional; never from prescription OCR — Firebase display name only
+  DISCLAIMER: disclaimer_translation for target language
+
+default_language: en-IN

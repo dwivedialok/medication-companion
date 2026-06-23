@@ -1,0 +1,57 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+output "app_service_account_emails" {
+  description = "Application service account emails by environment"
+  value       = { for k, v in google_service_account.app_sa : k => v.email }
+}
+
+output "cicd_runner_service_account_email" {
+  description = "CI/CD runner service account email"
+  value       = google_service_account.cicd_runner_sa.email
+}
+
+output "logs_bucket_names" {
+  description = "Logs storage bucket names by environment"
+  value       = { for k, v in google_storage_bucket.logs_data_bucket : k => v.name }
+}
+
+output "uploads_bucket_names" {
+  description = "Prescription upload + TTS audio bucket names by environment"
+  value       = { for k, v in google_storage_bucket.uploads : k => v.name }
+}
+
+output "vertex_reasoning_engine_sas" {
+  description = "Vertex AI Reasoning Engine service identity emails by environment (Agent Runtime runs as these)"
+  value       = local.reasoning_engine_sa_emails
+}
+
+output "auth_broker_service_names" {
+  description = "Cloud Run service name for the auth broker by environment"
+  value       = { for k, v in google_cloud_run_v2_service.auth_broker : k => v.name }
+}
+
+output "auth_broker_service_urls" {
+  description = "Cloud Run URLs by environment. Browsers should NOT hit these directly — use Firebase Hosting domain (rewrites)."
+  value       = { for k, v in google_cloud_run_v2_service.auth_broker : k => v.uri }
+}
+
+output "auth_broker_artifact_registries" {
+  description = "Artifact Registry Docker repo for auth broker images by environment"
+  value = {
+    for k, v in google_artifact_registry_repository.auth_broker :
+    k => "${var.region}-docker.pkg.dev/${local.deploy_project_ids[k]}/${v.repository_id}"
+  }
+}
+

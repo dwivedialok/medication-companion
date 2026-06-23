@@ -1,0 +1,54 @@
+# Patient medication history schema — mirrors MemoryServiceWrapper
+# Implementation: backend/memory/memory_service.py
+
+patient_id:
+  type: string
+  source: Firebase UID from verified JWT
+  storage_key: user_id in VertexAiMemoryBankService when MEMORY_BACKEND=vertex
+  app_name: backend  # matches ADK App.name in backend/agent.py (ADK_APP_NAME override)
+
+visit_record:
+  description: One persisted visit summary — no images, no raw LLM output, no PII beyond patient_id
+  fields:
+    visit_timestamp:
+      type: string
+      format: ISO-8601 UTC
+      example: "2025-11-01T09:30:00+00:00"
+    resolved_drugs:
+      type: array
+      items: string
+      description: Canonical generic drug names (lowercase), not brand names
+      example: ["warfarin", "metformin"]
+    severity_summary:
+      type: string
+      enum: [HIGH, MODERATE, LOW, INFO, NONE]
+      description: Highest interaction severity from that visit's SafetyOutput.overall_severity
+
+medication_history:
+  description: Full cross-visit record returned by get_medications_for_patient
+  type: array
+  items: visit_record
+  example:
+    - visit_timestamp: "2025-11-01T09:30:00+00:00"
+      resolved_drugs: ["warfarin"]
+      severity_summary: "MODERATE"
+    - visit_timestamp: "2026-01-15T14:00:00+00:00"
+      resolved_drugs: ["aspirin", "atorvastatin"]
+      severity_summary: "HIGH"
+
+write_policy:
+  trigger: root SequentialAgent after_agent_callback (persist_visit_to_memory)
+  stores: [visit_timestamp, resolved_drugs, severity_summary]
+  never_stores:
+    - prescription images
+    - raw OCR text
+    - clinical notes or diagnoses
+    - full EducationOutput or LocalisationOutput blobs
+
+backend_modes:
+  local:
+    env: MEMORY_BACKEND=local
+    storage: in-process dict keyed by patient_id
+  vertex:
+    env: MEMORY_BACKEND=vertex
+    storage: VertexAiMemoryBankService app_name medication-companion

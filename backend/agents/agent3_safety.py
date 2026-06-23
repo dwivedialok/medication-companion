@@ -16,9 +16,10 @@ Demonstrates Day 3 (Context Engineering / Memory):
 from google.adk.agents import LlmAgent
 from pydantic import BaseModel, Field
 
-from llm_models import MEDICATION_SAFETY_LLM
+from llm_models import MEDICATION_SAFETY_LLM, gemini
 from memory.memory_service import MemoryServiceWrapper
-from tools.patient_memory import create_patient_history_tool
+from tools.pipeline_state import generics_from_resolved_state
+from tools.safety_check import create_safety_check_tool
 
 
 # ── Data contracts ────────────────────────────────────────────────────────────
@@ -46,29 +47,35 @@ SAFETY_INSTRUCTION = """
 You are a medication safety checker. Your ONLY job is to identify drug-drug interactions.
 
 Rules:
-- First call get_patient_medication_history to load prior visits from memory
-- Check interactions ONLY for drugs in the resolved_drugs list from session state
-- Check NEW drugs against each other AND against EXISTING drugs from patient memory
-- Do NOT generate explanations, summaries, or patient-facing text
-- Severity levels: HIGH, MODERATE, LOW, INFO, NONE — no others
-- If interaction data is unavailable for a pair: output INFO severity with mechanism
-  "Insufficient data to assess interaction between <drug_a> and <drug_b>."
-  (substitute the actual drug names for <drug_a> and <drug_b>)
-- NEVER invent drug names or interactions not supported by pharmacological knowledge
-- Output ONLY a SafetyOutput JSON object
+- Call check_prescription_interactions exactly ONCE.
+- Copy its return value into your SafetyOutput JSON:
+  - interactions: use the tool's interactions list verbatim
+  - overall_severity: use the tool's overall_severity verbatim
+  - safe_to_proceed: use the tool's safe_to_proceed verbatim
+- Do NOT call any other tools.
+- Do NOT invent drug names or interactions.
+- Do NOT add pharmacological reasoning beyond what the tool returned.
+- If the tool returns zero interactions, output an empty interactions list.
+- Output ONLY a SafetyOutput JSON object.
 """
 
 
-def create_safety_agent(memory_service: MemoryServiceWrapper) -> LlmAgent:
+def create_safety_agent(
+    memory_service: MemoryServiceWrapper,
+    before_agent_callback=None,
+) -> LlmAgent:
     """Create and return the Safety agent."""
-    return LlmAgent(
-        name="medication_safety",
-        model=MEDICATION_SAFETY_LLM,
-        instruction=SAFETY_INSTRUCTION,
-        tools=[create_patient_history_tool(memory_service)],
-        output_schema=SafetyOutput,
-        description=(
+    kwargs: dict = {
+        "name": "medication_safety",
+        "model": gemini(MEDICATION_SAFETY_LLM),
+        "instruction": SAFETY_INSTRUCTION,
+        "tools": [create_safety_check_tool(memory_service)],
+        "output_schema": SafetyOutput,
+        "description": (
             "Checks drug-drug interactions within the current prescription and "
             "against the patient's full medication history stored in Vertex AI memory."
         ),
-    )
+    }
+    if before_agent_callback is not None:
+        kwargs["before_agent_callback"] = before_agent_callback
+    return LlmAgent(**kwargs)

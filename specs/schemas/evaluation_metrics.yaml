@@ -1,0 +1,91 @@
+# How generative pipeline outcomes are measured (Day 4 eval dimensions)
+# Binary pytest assertions are insufficient for LLM-generated text — use LLM-as-Judge.
+# Implementation: backend/evaluation/llm_judge.py, tests/eval/eval_config.yaml
+# Async: scores run after pipeline completes; never block patient response.
+
+deterministic_assertions:
+  description: Unit/integration tests with exact expected values
+  applies_to:
+    - Gate 1 status and confidence thresholds
+    - drug_lookup tier and UNRESOLVED tagging
+    - interaction_lookup severity from drugs.db
+    - TTS voice map and language_code in LocalisationOutput
+    - policy server allow/deny with known violation_class
+    - memory write shape (generics + severity only)
+  test_location: tests/unit/, tests/integration/
+
+generative_evaluations:
+  description: Scored 0–10 by async LLM-as-Judge; persisted to BigQuery eval_log
+  harness: backend/evaluation/llm_judge.py
+  config: tests/eval/eval_config.yaml
+  run_via: agents-cli eval grade (capstone) or schedule_pipeline_eval (runtime, wired in agent.py)
+
+  metrics:
+    drug_safety_score:
+      status: implemented
+      measures: Interaction completeness, no diagnostic claims in safety narrative
+      input: resolved_drugs, interactions_found, agent trace
+      threshold_capstone: 8
+
+    patient_clarity_score:
+      status: implemented
+      measures: Plain language, mandatory consult redirect in English explanation
+      input: Agent 4 explanation_text (English)
+      threshold_capstone: 8
+
+    translation_accuracy_score:
+      status: planned  # capstone plan Step 5 (judges todo)
+      measures: Semantic fidelity of Agent 5 output vs Agent 4 source
+      method: Back-translate translated_text to English; judge meaning preservation
+      input: source_text (Agent 4 summary), translated_text, target_language
+      per_language_rubric: hi-IN | ta-IN | te-IN | bn-IN sub-prompts in eval_config.yaml
+      threshold_capstone: 8
+      flags:
+        - added_clinical_content
+        - removed_disclaimer
+        - meaning_drift
+
+    tone_calibration_score:
+      status: planned
+      measures: Severity-appropriate tone in final localised output
+      method: Judge compares tone to specs/schemas/language_map.yaml severity_tone_phrases
+      input: translated_text, overall_severity, target_language
+      examples:
+        HIGH: urgent but calm — not alarmist
+        MODERATE: clear and reassuring
+        LOW: informative
+      threshold_capstone: 7
+
+    intent_satisfaction_score:
+      status: planned
+      measures: Final localised output reflects resolved interactions and severity
+      input: interaction_cards, SafetyOutput, translated_text
+      threshold_capstone: 8
+
+    trajectory_quality_score:
+      status: planned
+      measures: Agent sequence sanity, tool-call appropriateness, no intent drift
+      input: Cloud Trace span dump (Agent Runtime native tracing)
+      threshold_capstone: 7
+
+localization_scenario_eval:
+  # Maps specs/pipeline.feature "Localisation handoff" scenario
+  spec_file: specs/pipeline.feature
+  scenario: Localisation handoff preserves disclaimer and severity tone
+  verify:
+    deterministic:
+      - disclaimer substring present in translated_text (language-specific from language_map.yaml)
+      - language_code matches target_language
+      - text_to_speech called with correct language_code
+      - audio_url is non-empty signed URL
+    generative:
+      - translation_accuracy_score >= threshold
+      - tone_calibration_score >= threshold for overall_severity HIGH
+  note: >-
+    "Translates faithfully" in Gherkin is a behavioral intent, not a pytest string match.
+    Fidelity and tone are scored by LLM-as-Judge; regressions tracked in eval_log over time.
+
+behavioral_drift:
+  description: Score deltas across deploys or model version changes
+  detection: Compare eval_log aggregates by agent_versions / model_version
+  alert: translation_accuracy_score drop > 1.5 points on same golden dataset

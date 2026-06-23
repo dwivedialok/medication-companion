@@ -1,0 +1,38 @@
+{
+  "eval_cases": [
+    {
+      "eval_case_id": "blurry_or_invalid_image",
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Please analyse this prescription image."
+          },
+          {
+            "inline_data": {
+              "mime_type": "image/gif",
+              "data": "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "eval_case_id": "smoke_4drug_2interactions",
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Please analyse this prescription image. Target language: en-IN"
+          },
+          {
+            "file_data": {
+              "mime_type": "image/png",
+              "file_uri": "gs://medication-companion-uploads/eval/smoke_4drug_2interactions.png"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

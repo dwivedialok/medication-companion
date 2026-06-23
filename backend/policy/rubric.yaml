@@ -1,0 +1,104 @@
+# Policy Server violation rubric (Day 5 §3.2)
+# Flat YAML — consumed by backend/policy/policy_server.py at import time.
+# Each class maps to a deterministic detector + a user-friendly fallback.
+
+safe_fallback: >-
+  Please discuss this prescription with your doctor or pharmacist.
+
+violation_classes:
+  # ── Structural (image-intake gate) ────────────────────────────────────
+  non_prescription_image:
+    stage: image_intake
+    severity: deny
+    description: Uploaded image is not a prescription (menu, screenshot, etc.).
+    user_message: >-
+      That doesn't look like a prescription. Please upload a clear photo of
+      your prescription. Please discuss this with your doctor or pharmacist.
+
+  overlay_injection:
+    stage: image_intake
+    severity: deny
+    description: Prescription image carries adversarial overlaid text trying to redirect the assistant.
+    user_message: >-
+      We couldn't safely process this image. Please retake the photo without
+      any added text or notes overlaid on it. Please discuss this with your
+      doctor or pharmacist.
+
+  unreadable_image:
+    stage: image_intake
+    severity: deny
+    description: Image is too blurry, dark, or cropped to read any drug name.
+    user_message: >-
+      The prescription image wasn't clear enough to read safely. Please
+      retake the photo in good lighting, keeping the text flat and in focus.
+      Please discuss this with your doctor or pharmacist.
+
+  # ── Semantic (agent output gate) ──────────────────────────────────────
+  diagnostic_claim:
+    stage: agent_output
+    severity: deny
+    description: Output makes or implies a clinical diagnosis ("you have X", "this indicates ...").
+    detectors:
+      - "(?i)\\byou have\\b"
+      - "(?i)\\bthis indicates\\b"
+      - "(?i)\\bthis means you have\\b"
+      - "(?i)\\bthis suggests you have\\b"
+      - "(?i)\\bdiagnosed with\\b"
+
+  dosing_change:
+    stage: agent_output
+    severity: deny
+    description: Output suggests changing, stopping, or substituting a dose.
+    detectors:
+      - "(?i)\\btake (half|two|three) (a |of )?tablets?\\b"
+      - "(?i)\\b(stop|skip|double|halve|reduce|increase) (your |the )?dose\\b"
+      - "(?i)\\b(stop|skip) taking\\b"
+      - "(?i)\\binstead of one\\b"
+
+  otc_alternative:
+    stage: agent_output
+    severity: deny
+    description: Output suggests an OTC substitution for a prescribed medication.
+    detectors:
+      - "(?i)\\b(switch|swap|replace|substitute) [a-z0-9\\- ]+ (to|with|for) [a-z0-9\\- ]+\\b"
+      - "(?i)\\btry [a-z0-9\\- ]+ instead\\b"
+      - "(?i)\\buse [a-z0-9\\- ]+ in place of\\b"
+
+  severity_downgrade:
+    stage: agent_output
+    severity: deny
+    description: Output describes a HIGH-severity interaction as harmless or low-risk.
+    detectors:
+      - "(?i)\\b(harmless|safe|no risk|nothing to worry|don't worry)\\b"
+
+  cross_patient_leak:
+    stage: agent_output
+    severity: deny
+    description: Output references a name or identifier that is not the current patient.
+    # No regex — checked by detector function against context.forbidden_names.
+
+  # ── Q&A input gate (deferred) ─────────────────────────────────────────
+  qa_diagnostic_question:
+    stage: qa_input
+    severity: deny
+    description: User chat asks for a diagnosis.
+    detectors:
+      - "(?i)\\b(do i have|am i sick|is this cancer|do i have diabetes|is this serious)\\b"
+      - "(?i)\\b(diagnos|what disease|what condition|what illness)\\b"
+
+  qa_dosing_request:
+    stage: qa_input
+    severity: deny
+    description: User chat asks for dosing advice.
+    detectors:
+      - "(?i)\\b(how much should i take|what dose|dosage for me|take more|take less)\\b"
+      - "(?i)\\b(stop taking|should i stop|can i stop|skip my dose)\\b"
+
+  qa_prompt_injection:
+    stage: qa_input
+    severity: deny
+    description: User chat contains a prompt-injection attempt.
+    detectors:
+      - "(?i)(ignore (previous|above|all) instructions)"
+      - "(?i)(you are now|act as|pretend you are|jailbreak|dan mode)"
+      - "(?i)(system prompt|<system>)"

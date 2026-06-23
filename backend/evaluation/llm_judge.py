@@ -14,15 +14,20 @@ import asyncio
 import json
 import logging
 import os
+import re
 from datetime import datetime, timezone
 
-import google.generativeai as genai
 from google.cloud import bigquery
 from pydantic import BaseModel
 
-from llm_models import LLM_JUDGE_MODEL
+from llm_models import LLM_JUDGE_MODEL, judge_genai_client
 
 logger = logging.getLogger(__name__)
+
+_JSON_FENCE_RE = re.compile(
+    r"^```(?:json)?\s*\n?(.*?)\n?```\s*$",
+    re.DOTALL | re.IGNORECASE,
+)
 
 
 class EvalScore(BaseModel):
@@ -65,6 +70,25 @@ Respond ONLY with valid JSON:
 """
 
 
+def _parse_judge_json(text: str) -> dict:
+    """Parse judge model output, tolerating optional ```json fences."""
+    cleaned = text.strip()
+    match = _JSON_FENCE_RE.match(cleaned)
+    if match:
+        cleaned = match.group(1).strip()
+    return json.loads(cleaned)
+
+
+def _generate_judge_json(prompt: str, model: str) -> dict:
+    """Sync Gemini judge call via google.genai (Vertex global endpoint)."""
+    client = judge_genai_client()
+    response = client.models.generate_content(model=model, contents=prompt)
+    text = (response.text or "").strip()
+    if not text:
+        raise ValueError("empty judge response")
+    return _parse_judge_json(text)
+
+
 async def score_pipeline_output(
     session_id: str,
     patient_id: str,
@@ -80,9 +104,6 @@ async def score_pipeline_output(
     judge_model = LLM_JUDGE_MODEL
 
     try:
-        model = genai.GenerativeModel(judge_model)
-
-        # Run both judge calls concurrently
         safety_prompt = SAFETY_JUDGE_PROMPT.format(
             resolved_drugs=json.dumps(resolved_drugs),
             interactions_found=json.dumps(interactions_found),
@@ -91,13 +112,10 @@ async def score_pipeline_output(
             explanation_text=explanation_text,
         )
 
-        safety_resp, clarity_resp = await asyncio.gather(
-            asyncio.to_thread(lambda: model.generate_content(safety_prompt)),
-            asyncio.to_thread(lambda: model.generate_content(clarity_prompt)),
+        safety_result, clarity_result = await asyncio.gather(
+            asyncio.to_thread(_generate_judge_json, safety_prompt, judge_model),
+            asyncio.to_thread(_generate_judge_json, clarity_prompt, judge_model),
         )
-
-        safety_result = json.loads(safety_resp.text.strip())
-        clarity_result = json.loads(clarity_resp.text.strip())
 
         all_flags = safety_result.get("flags", []) + clarity_result.get("flags", [])
 

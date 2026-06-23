@@ -13,7 +13,10 @@ from typing import Any, Callable, TypeVar
 from pydantic import BaseModel, ValidationError
 
 from agents.agent1_reader import Gate1Reject, ReaderOutput
+from agents.agent2_resolver import ResolverOutput
+from agents.agent3_safety import SafetyOutput
 from agents.agent4_education import EducationOutput
+from agents.agent5_localisation import LocalisationOutput
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +166,68 @@ def find_education_output(events: list) -> EducationOutput | None:
         agent_name="patient_education",
         model_cls=EducationOutput,
         match=lambda data: "drug_cards" in data,
+    )
+
+
+def find_resolver_output(events: list) -> ResolverOutput | None:
+    return extract_agent_output(
+        events,
+        agent_name="medication_resolver",
+        model_cls=ResolverOutput,
+        match=lambda data: "resolved_drugs" in data,
+    )
+
+
+def _unwrap_tool_response(raw: Any) -> dict | None:
+    if isinstance(raw, str) and raw.strip():
+        try:
+            raw = json.loads(_strip_json_fence(raw))
+        except json.JSONDecodeError:
+            return None
+    if isinstance(raw, dict):
+        if "result" in raw and isinstance(raw["result"], dict):
+            return raw["result"]
+        if "interactions" in raw or "pairs_checked" in raw:
+            return raw
+    return None
+
+
+def find_safety_tool_result(events: list) -> dict | None:
+    """
+    Return the check_prescription_interactions tool response.
+
+    This is the deterministic source of truth for interactions — prefer it over
+    Agent 3/4 LLM paraphrase in the API response.
+    """
+    for event in reversed(events):
+        get_responses = getattr(event, "get_function_responses", None)
+        if not get_responses:
+            continue
+        for resp in get_responses() or []:
+            if getattr(resp, "name", "") != "check_prescription_interactions":
+                continue
+            payload = _unwrap_tool_response(getattr(resp, "response", None))
+            if payload is not None:
+                return payload
+    return None
+
+
+def find_safety_output(events: list) -> SafetyOutput | None:
+    """Return Agent 3 SafetyOutput when present (fallback if tool event missing)."""
+    return extract_agent_output(
+        events,
+        agent_name="medication_safety",
+        model_cls=SafetyOutput,
+        match=lambda data: "interactions" in data and "safe_to_proceed" in data,
+    )
+
+
+def find_localisation_output(events: list) -> LocalisationOutput | None:
+    return extract_agent_output(
+        events,
+        agent_name="localisation_audio",
+        model_cls=LocalisationOutput,
+        match=lambda data: "translated_text" in data,
     )
 
 

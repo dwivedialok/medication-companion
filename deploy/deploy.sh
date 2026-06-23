@@ -1,19 +1,29 @@
 #!/usr/bin/env bash
 # =============================================================================
-# deploy/deploy.sh
-# Deploy Medication Companion to GCP.
-# Deploys: Agent 5 A2A service → Main service (Agents 1-4) → Flutter PWA
+# deploy/deploy.sh   *** DEPRECATED ***
 #
-# Usage:
-#   ./deploy/deploy.sh [--project PROJECT_ID] [--region REGION] [--env ENV]
+# This script targets the pre-Agent-Runtime architecture: it builds and pushes
+# the `medication-companion` + `medication-companion-a2a` Cloud Run services
+# and points Flutter at the main service URL. That architecture has been
+# replaced by:
 #
-# Prerequisites:
-#   - setup_gcp.sh has been run
-#   - .env.production exists (copy from .env.example)
-#   - Firebase CLI installed and authenticated
-#   - Flutter SDK installed
+#   - Agent Runtime (Vertex AI Reasoning Engine), deployed via `make deploy`.
+#   - Auth broker (Cloud Run), deployed via `make deploy-auth-broker` against a
+#     Terraform-managed service skeleton (deployment/terraform/.../auth_broker.tf).
+#   - Flutter PWA served from Firebase Hosting with same-origin rewrites to the
+#     auth broker, deployed via `make deploy-frontend`.
+#
+# See docs/deployment_runbook.md for the current deploy commands and CI is in
+# .github/workflows/{staging,deploy-to-prod}.yaml.
+#
+# This script is kept only for historical reference and should not be invoked.
 # =============================================================================
 set -euo pipefail
+
+echo "ERROR: deploy/deploy.sh is deprecated." >&2
+echo "       Use 'make deploy-backend' + 'make deploy-frontend' instead." >&2
+echo "       See docs/deployment_runbook.md." >&2
+exit 1
 
 # ── Config ────────────────────────────────────────────────────────────────────
 PROJECT_ID="${GCP_PROJECT_ID:-$(gcloud config get-value project 2>/dev/null)}"

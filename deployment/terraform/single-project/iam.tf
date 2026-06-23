@@ -1,0 +1,84 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+locals {
+  project_ids = {
+    default = var.project_id
+  }
+
+  # Agent Runtime user code runs as app_sa when deploy passes --service-account
+  # (see Makefile APP_SA). The Reasoning Engine managed SA (-re) is a separate
+  # platform identity; grant app_sa_roles to both for API access parity.
+  reasoning_engine_sa_email = "service-${data.google_project.project.number}@gcp-sa-aiplatform-re.iam.gserviceaccount.com"
+  reasoning_engine_sa_member = "serviceAccount:${local.reasoning_engine_sa_email}"
+}
+
+
+# Get the project number
+data "google_project" "project" {
+  project_id = var.project_id
+}
+
+# Grant Storage Object Creator role to default compute service account
+resource "google_project_iam_member" "default_compute_sa_storage_object_creator" {
+  project    = var.project_id
+  role       = "roles/cloudbuild.builds.builder"
+  member     = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+  depends_on = [resource.google_project_service.services]
+}
+
+# Agent service account
+resource "google_service_account" "app_sa" {
+  account_id   = "${var.project_name}-app"
+  display_name = "${var.project_name} Agent Service Account"
+  project      = var.project_id
+  depends_on   = [resource.google_project_service.services]
+}
+
+# Grant application SA the required permissions to run the application
+resource "google_project_iam_member" "app_sa_roles" {
+  for_each = {
+    for pair in setproduct(keys(local.project_ids), var.app_sa_roles) :
+    join(",", pair) => {
+      project = local.project_ids[pair[0]]
+      role    = pair[1]
+    }
+  }
+
+  project    = each.value.project
+  role       = each.value.role
+  member     = "serviceAccount:${google_service_account.app_sa.email}"
+  depends_on = [resource.google_project_service.services]
+}
+
+
+# Grant required permissions to the Reasoning Engine managed service identity.
+# Agent Runtime executes as gcp-sa-aiplatform-re, NOT as app_sa.
+resource "google_project_iam_member" "reasoning_engine_sa_permissions" {
+  for_each = {
+    for pair in setproduct(keys(local.project_ids), var.app_sa_roles) :
+    join(",", pair) => pair[1]
+  }
+
+  project    = var.project_id
+  role       = each.value
+  member     = local.reasoning_engine_sa_member
+  depends_on = [resource.google_project_service.services]
+}
+
+# NOTE: The signBlob self-binding (roles/iam.serviceAccountTokenCreator on the
+# Reasoning Engine SA, for V4 GCS signed URLs from Agent 5 TTS) is granted by
+# `make grant-tts-iam` POST-deploy. The -re SA is created lazily on first agent
+# invocation, so Terraform cannot bind to it at apply time.
+

@@ -14,10 +14,36 @@ Agent mapping:
   PATIENT_EDUCATION_LLM          → Agent 4 (patient_education)
   LOCALISATION_AUDIO_LLM         → Agent 5 (localisation_audio)
   LLM_JUDGE_MODEL                → evaluation/llm_judge.py (async quality scoring)
+
+Gemini endpoint:
+  gemini-3.x models on Vertex are only published at locations/global, while
+  Agent Runtime (and the rest of our GCP footprint) lives in us-central1.
+  Rather than overload GOOGLE_CLOUD_LOCATION to mean "Gemini endpoint", we
+  pin the Gemini API client to global via GlobalGemini and let
+  GOOGLE_CLOUD_LOCATION keep its intuitive "project region" meaning.
 """
 import os
+from functools import cached_property, lru_cache
 
-DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"
+from google.adk.models import Gemini
+from google.genai import Client
+
+
+class GlobalGemini(Gemini):
+    """Gemini model that always talks to the Vertex `global` endpoint.
+
+    gemini-3.x is only served at locations/global; the regional Agent Runtime
+    host (us-central1) does not publish these models. Subclassing per the ADK
+    pattern (see google_llm.py:97-109) keeps the endpoint a model-level
+    concern instead of a process-wide env override.
+    """
+
+    @cached_property
+    def api_client(self) -> Client:
+        return Client(vertexai=True, location="global", project=os.getenv("GOOGLE_CLOUD_PROJECT"))
+
+
+DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite"
 
 
 def _resolve_model(per_agent_env_key: str) -> str:
@@ -26,6 +52,17 @@ def _resolve_model(per_agent_env_key: str) -> str:
         or os.getenv("GEMINI_MODEL")
         or DEFAULT_GEMINI_MODEL
     )
+
+
+def gemini(model_id: str) -> GlobalGemini:
+    """Build a GlobalGemini for the given model id (always uses global endpoint)."""
+    return GlobalGemini(model=model_id)
+
+
+@lru_cache(maxsize=1)
+def judge_genai_client() -> Client:
+    """Vertex Gemini client for async LLM-as-Judge (global endpoint, same as agents)."""
+    return Client(vertexai=True, location="global", project=os.getenv("GOOGLE_CLOUD_PROJECT"))
 
 
 # Agent 1 — vision OCR + Gate 1 confidence check
