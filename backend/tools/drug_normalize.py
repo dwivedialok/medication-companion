@@ -156,6 +156,8 @@ def canonical_pair(a: str, b: str) -> tuple[str, str]:
 
 
 SEVERITY_MAP = {
+    "HIGH": "HIGH",
+    "INFO": "INFO",
     "LIFE-THREATENING": "HIGH",
     "LIFE THREATENING": "HIGH",
     "MAJOR": "HIGH",

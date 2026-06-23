@@ -8,16 +8,16 @@ For deploy commands, see [deployment_runbook.md](deployment_runbook.md).
 ## Test prescription image
 
 **Deterministic fixture (committed):** `data/sample/smoke_4drug_2interactions.png` — four
-curated Indian brands with **two known HIGH interactions** in `data/drugs.db`:
+curated Indian brands with **three known HIGH interactions** in `data/drugs.db`:
 
 | Brand on Rx | Generic | Interaction |
 |-------------|---------|-------------|
 | Ecosprin | aspirin | aspirin + nimesulide → **HIGH** |
 | Nise | nimesulide | (same pair) |
-| Warf | warfarin | metronidazole + warfarin → **HIGH** |
-| Flagyl | metronidazole | (same pair) |
+| Warf | warfarin | aspirin + warfarin → **HIGH** (curated) |
+| Flagyl | metronidazole | metronidazole + warfarin → **HIGH** |
 
-Within-visit pair count: **6** (= C(4,2)). Expected interactions from dataset: **2**.
+Within-visit pair count: **6** (= C(4,2)). Expected interactions from dataset: **3**.
 
 Regenerate the PNG: `uv pip install pillow && uv run python scripts/generate_smoke_prescription.py`
 
@@ -187,19 +187,19 @@ Script auto-falls back to `/upload-direct` if signed URLs fail locally.
 1. **Broker terminal** — after `/prescription`, grep for:
 
    ```text
-   INFO:tools.safety_check:Safety check for patient dev-patient-001: 4 generic(s), 6 pair(s) checked, 2 interaction(s) from dataset
+   INFO:tools.safety_check:Safety check for patient dev-patient-001: 4 generic(s), 6 pair(s) checked, 3 interaction(s) from dataset
    ```
 
    If you see `No resolved generics in session state`, Agent 2 did not write
    `resolved_drugs` (often allowlist mismatch — Agent 1 OCR names must match resolver
    `raw_name`). Re-run with the committed fixture above.
 
-2. **Script summary** — footer should show 4 drugs and 2 interactions:
+2. **Script summary** — footer should show 4 drugs and 3 interactions:
 
    ```text
    Severity   : HIGH
    Drugs      : 4 resolved
-   Interactions: 2
+   Interactions: 3
    ```
 
 3. **Offline baseline** (before hitting Gemini): `uv run python scripts/verify_smoke_fixture.py`
@@ -286,7 +286,7 @@ Supported: `en-IN`, `hi-IN`, `ta-IN`, `te-IN`, `bn-IN`.
 |------|----------|
 | **prescription_reader** | `Ecosprin`, `Nise`, `Warf`, `Flagyl` |
 | **medication_resolver** | `aspirin`, `nimesulide`, `warfarin`, `metronidazole` |
-| **medication_safety** | 2 × **HIGH**: `aspirin+nimesulide`, `metronidazole+warfarin` |
+| **medication_safety** | 3 × **HIGH**: `aspirin+nimesulide`, `aspirin+warfarin`, `metronidazole+warfarin` |
 | **patient_education** | `interaction_cards` use same generic pairs |
 | **localisation_audio** | Non-English text for `hi-IN`; `audio_url` is a **real** `storage.googleapis.com/…` signed URL (not `stub.local`) |
 
@@ -333,7 +333,7 @@ uv run python scripts/test_prescription.py "$RX_IMAGE" \
   --language hi-IN
 ```
 
-**Pass:** HTTP 200; footer shows 4 drugs, 2 interactions, `Severity: HIGH`.
+**Pass:** HTTP 200; footer shows 4 drugs, 3 interactions, `Severity: HIGH`.
 Broker log: `Running pipeline via Agent Runtime` (not `local ADK Runner`).
 
 **Memory smoke (2nd run):** reuse `DEV_PATIENT_ID=playground-smoke-001`, upload a Rx that
@@ -457,30 +457,123 @@ Three incremental checks — run in order.
 
 ### Step 1 · Eval dataset (no Gemini)
 
+**Important:** `agents-cli eval generate` hits deployed Agent Runtime. Agent 1 expects
+prescription images as **`gs://` `file_data`** (same as production). `inline_data` base64 in
+the JSON dataset is stored but usually **does not reach vision** on Runtime — Agent 1 then
+returns `gate1_reject` / "image not transmitted", and `drug_safety_score` on the smoke case
+scores 0 even though `agents-cli run --file` works fine.
+
+Upload the smoke fixture once, then rebuild the dataset with a GCS URI:
+
 ```bash
-uv run python scripts/build_smoke_eval_dataset.py
+export GCS_BUCKET=medication-companion-uploads
+gsutil cp data/sample/smoke_4drug_2interactions.png \
+  gs://${GCS_BUCKET}/eval/smoke_4drug_2interactions.png
+
+uv run python scripts/build_smoke_eval_dataset.py \
+  --gcs-uri gs://${GCS_BUCKET}/eval/smoke_4drug_2interactions.png
+
 python3 -c "
 import json
-ids=[c['eval_case_id'] for c in json.load(open('tests/eval/datasets/basic-dataset.json'))['eval_cases']]
+d=json.load(open('tests/eval/datasets/basic-dataset.json'))
+ids=[c['eval_case_id'] for c in d['eval_cases']]
 assert 'smoke_4drug_2interactions' in ids, ids
-print('OK:', ids)
+smoke=next(c for c in d['eval_cases'] if c['eval_case_id']=='smoke_4drug_2interactions')
+part=smoke['prompt']['parts'][1]
+assert 'file_data' in part, part.keys()
+print('OK:', ids, 'image=', part['file_data']['file_uri'])
 "
 ```
 
-### Step 2 · agents-cli eval (populates Evaluation → Experiments)
+### Step 2 · Custom metrics eval (`drug_safety_score`, `patient_clarity_score`)
 
-Requires deployed Runtime (A2 deploy) and ADC:
+Requires deployed Runtime (A2 deploy) and ADC. Uses **`tests/eval/eval_config.yaml`**
+— not the platform auto-rubrics (`Agent Tool Use Quality`, `Agent Final Response Quality`)
+shown when you grade an existing session in the UI.
+
+The rubric grades **only** what `check_prescription_interactions` returned in the trace
+(dataset-backed). It does not apply external pharmacology beyond the tool output.
+
+#### Step 2a · Vision eval via production path (**recommended**)
+
+`agents-cli eval generate` often fails to deliver prescription images to Agent 1 on
+Runtime (Gate 1 reject / "image not transmitted"). Use the production GCS +
+`streamQuery` path instead: run the pipeline, export one trace, grade that file.
+
+**Prerequisites:** Step 1 upload complete; `deployment_metadata.json` has
+`remote_agent_runtime_id`; ADC configured (`gcloud auth application-default login`).
 
 ```bash
 export GCP_PROJECT=medication-companion-dev
 export GOOGLE_CLOUD_PROJECT=$GCP_PROJECT
-agents-cli eval generate --dataset tests/eval/datasets/basic-dataset.json
-agents-cli eval grade --config tests/eval/eval_config.yaml
+
+# One command: Runtime inference → trace JSON → custom metrics grade
+uv run python scripts/run_vision_eval_trace.py --skip-upload --grade
+
 open artifacts/grade_results/results_*.html
 ```
 
-**Pass:** `artifacts/traces/` contains smoke trace; HTML report shows `drug_safety_score` and
-`patient_clarity_score`. Agent Platform **Evaluation → Experiments** lists a new experiment.
+**What the script does**
+
+1. Uses `gs://medication-companion-uploads/eval/smoke_4drug_2interactions.png` (from Step 1)
+2. Calls `run_prescription_pipeline` (same path as auth broker / A2b-broker)
+3. Writes `artifacts/traces/vision_eval_<timestamp>.json` (single case)
+4. Runs `agents-cli eval grade --config tests/eval/eval_config.yaml --traces <that file>`
+
+**Variants**
+
+```bash
+# Trace only (grade later against a specific file)
+uv run python scripts/run_vision_eval_trace.py --skip-upload
+
+agents-cli eval grade \
+  --config tests/eval/eval_config.yaml \
+  --traces artifacts/traces/vision_eval_<timestamp>.json
+
+# Upload a local image to GCS first, then run + grade
+uv run python scripts/run_vision_eval_trace.py \
+  --image data/sample/smoke_4drug_2interactions.png --grade
+
+# Reuse an existing gs:// object
+uv run python scripts/run_vision_eval_trace.py \
+  --gcs-uri gs://medication-companion-uploads/eval/smoke_4drug_2interactions.png \
+  --grade
+```
+
+**Pass (smoke case):**
+
+- Console: `Gate 1 ok — pairs_checked=6, interactions=3, severity=HIGH`
+- HTML: one row for `smoke_4drug_2interactions`; `drug_safety_score` ≥ 8;
+  `patient_clarity_score` ≥ 8
+- Grade **one** trace file — do not pass `--traces artifacts/traces/` (old runs duplicate rows)
+
+**Sanity check without eval:** `agents-cli run --url "$RUNTIME_URL" --mode adk --file "$RX_IMAGE" …`
+([A2b](#a2b--deployed-agent-runtime-smoke-agents-cli-run--recommended)).
+
+#### Step 2b · Dataset `eval generate` (optional; vision often broken on Runtime)
+
+```bash
+export GCP_PROJECT=medication-companion-dev
+export GOOGLE_CLOUD_PROJECT=$GCP_PROJECT
+
+# Generate traces (inference) → artifacts/traces/traces_<timestamp>.json
+agents-cli eval generate --dataset tests/eval/datasets/basic-dataset.json
+
+# Grade with repo custom metrics only — pass ONE trace file, not the whole folder
+agents-cli eval grade \
+  --config tests/eval/eval_config.yaml \
+  --traces artifacts/traces/traces_<timestamp>.json
+
+open artifacts/grade_results/results_*.html
+```
+
+**Pass:** HTML report lists **`drug_safety_score`** and **`patient_clarity_score`** per case.
+Smoke case: safety ≥ 8 when Agent 1 reads the image (3 dataset interactions reflected).
+Blurry GIF case: safety 10 (correct Gate 1 handling). If smoke scores 0 with Gate 1 reject,
+use Step 2a instead — `inline_data` / eval-generate vision delivery is unreliable on Runtime.
+
+**Offline baseline before any eval:** `uv run python scripts/verify_smoke_fixture.py`
+(expect 6 pairs, 3 interactions, HIGH).
 
 ### Step 3 · Runtime async judge + span attributes (after redeploy)
 

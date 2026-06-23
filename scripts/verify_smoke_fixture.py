@@ -19,7 +19,7 @@ from tools.safety_check import compute_prescription_safety  # noqa: E402
 
 EXPECTED_GENERICS = ["aspirin", "nimesulide", "warfarin", "metronidazole"]
 EXPECTED_PAIRS = 6
-EXPECTED_INTERACTIONS = 2
+EXPECTED_INTERACTIONS = 3
 
 
 def main() -> None:

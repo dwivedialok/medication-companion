@@ -10,6 +10,8 @@ Inputs (data/):
   - all_medicine databased.csv                      (source='all_medicine')
   - medicine_data.csv                               (source='medicine_data',
                                                      primary interaction source)
+  - curated_interactions.csv                        (source='curated', hand-maintained;
+                                                     overrides medicine_data on collision)
 
 Output:
   - data/drugs.db    SQLite with tables: brands, brand_components, generics,
@@ -231,6 +233,49 @@ def iter_medicine_data_interactions(path: Path):
                     yield (salt_a, salt_b, severity)
 
 
+def iter_curated_interactions(path: Path):
+    """data/curated_interactions.csv — committed smoke/regression interaction rows."""
+    with open_csv(path) as f:
+        for row in csv.DictReader(f):
+            a = normalize_generic((row.get("generic_a") or "").strip())
+            b = normalize_generic((row.get("generic_b") or "").strip())
+            if not a or not b or a == b:
+                continue
+            severity = map_severity((row.get("severity") or "HIGH").strip())
+            mechanism = (row.get("mechanism") or "").strip()
+            yield (a, b, severity, mechanism)
+
+
+def _load_interactions(
+    data_dir: Path,
+) -> dict[tuple[str, str], tuple[str, str, str]]:
+    """Merge medicine_data + curated interactions; curated wins on collision."""
+    sev_rank = {"HIGH": 3, "MODERATE": 2, "LOW": 1, "INFO": 0}
+    best: dict[tuple[str, str], tuple[str, str, str]] = {}
+
+    interactions_path = data_dir / "medicine_data.csv"
+    if interactions_path.exists():
+        logger.info("Ingesting interactions from %s …", interactions_path.name)
+        for salt_a, salt_b, severity in iter_medicine_data_interactions(
+            interactions_path
+        ):
+            key = canonical_pair(salt_a, salt_b)
+            existing = best.get(key)
+            if existing is None or sev_rank[severity] > sev_rank[existing[0]]:
+                best[key] = (severity, "", "medicine_data")
+    else:
+        logger.warning("medicine_data.csv not found — skipping Kaggle interactions")
+
+    curated_path = data_dir / "curated_interactions.csv"
+    if curated_path.exists():
+        logger.info("Ingesting interactions from %s …", curated_path.name)
+        for a, b, severity, mechanism in iter_curated_interactions(curated_path):
+            key = canonical_pair(a, b)
+            best[key] = (severity, mechanism, "curated")
+
+    return best
+
+
 # ── Build pipeline ───────────────────────────────────────────────────────────
 
 
@@ -362,30 +407,18 @@ def build(data_dir: Path, out_path: Path) -> None:
     conn.commit()
     logger.info("Generics indexed: %s", len(generic_meta))
 
-    # Interactions
-    interactions_path = data_dir / "medicine_data.csv"
+    # Interactions (medicine_data.csv + curated_interactions.csv)
+    best = _load_interactions(data_dir)
     interaction_count = 0
-    if interactions_path.exists():
-        logger.info("Ingesting interactions from %s …", interactions_path.name)
-        # Highest-severity wins on (a,b) collisions: HIGH > MODERATE > LOW > INFO
-        sev_rank = {"HIGH": 3, "MODERATE": 2, "LOW": 1, "INFO": 0}
-        best: dict[tuple[str, str], tuple[str, str]] = {}
-        for salt_a, salt_b, severity in iter_medicine_data_interactions(interactions_path):
-            key = canonical_pair(salt_a, salt_b)
-            existing = best.get(key)
-            if existing is None or sev_rank[severity] > sev_rank[existing[0]]:
-                best[key] = (severity, "")
-        cur = conn.cursor()
-        for (a, b), (severity, mechanism) in best.items():
-            cur.execute(
-                "INSERT OR REPLACE INTO interactions "
-                "(generic_a, generic_b, severity, mechanism, source) VALUES (?,?,?,?,?)",
-                (a, b, severity, mechanism, "medicine_data"),
-            )
-            interaction_count += 1
-        conn.commit()
-    else:
-        logger.warning("medicine_data.csv not found — interactions table will be empty")
+    cur = conn.cursor()
+    for (a, b), (severity, mechanism, source) in best.items():
+        cur.execute(
+            "INSERT OR REPLACE INTO interactions "
+            "(generic_a, generic_b, severity, mechanism, source) VALUES (?,?,?,?,?)",
+            (a, b, severity, mechanism, source),
+        )
+        interaction_count += 1
+    conn.commit()
 
     # Rebuild FTS index from final brands content
     logger.info("Building FTS index …")
