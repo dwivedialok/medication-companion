@@ -28,6 +28,9 @@ medication_history:
   description: Full cross-visit record returned by get_medications_for_patient
   type: array
   items: visit_record
+  retrieve:
+    search_terms: optional list of current Rx drug names (OCR or generics); primary Vertex similarity query
+    fallback_query: broad visit-schema query merged so disjoint prior visits remain visible
   example:
     - visit_timestamp: "2025-11-01T09:30:00+00:00"
       resolved_drugs: ["warfarin"]

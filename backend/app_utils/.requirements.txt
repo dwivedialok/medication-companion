@@ -31,9 +31,10 @@ google-cloud-appengine-logging==1.10.0
 google-cloud-audit-log==0.6.0
 google-cloud-bigquery==3.42.0
 google-cloud-core==2.6.0
-google-cloud-firestore==2.27.0 ; platform_python_implementation != 'PyPy'
+google-cloud-firestore==2.27.0
 google-cloud-iam==2.23.0
 google-cloud-logging==3.16.0
+google-cloud-pubsub==2.39.0
 google-cloud-resource-manager==1.17.0
 google-cloud-storage==3.12.0
 google-cloud-texttospeech==2.36.0

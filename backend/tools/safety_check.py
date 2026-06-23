@@ -154,7 +154,10 @@ def create_safety_check_tool(
                 "prior_visit_generics": [],
             }
 
-        history = await memory_service.get_medications_for_patient(tool_context.user_id)
+        history = await memory_service.get_medications_for_patient(
+            tool_context.user_id,
+            search_terms=current,
+        )
         result = compute_prescription_safety(current, history)
         logger.info(
             "Safety check for patient %s: %d generic(s), %d prior generic(s) in memory, "

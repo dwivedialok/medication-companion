@@ -70,6 +70,83 @@ def test_memory_entry_round_trip():
     assert parsed == visit
 
 
+def test_build_memory_search_query_dedupes_and_joins():
+    from memory.memory_service import _build_memory_search_query
+
+    assert (
+        _build_memory_search_query(["GLIMISAVE", "glimepiride", "SARTEL 80MG"])
+        == "GLIMISAVE glimepiride SARTEL 80MG"
+    )
+    assert _build_memory_search_query(["", "  "]) is None
+
+
+def test_merge_visits_dedupes_by_timestamp():
+    from memory.memory_service import _merge_visits
+
+    smoke = {
+        "visit_timestamp": "2026-06-23T19:19:19+00:00",
+        "resolved_drugs": ["aspirin"],
+        "severity_summary": "HIGH",
+    }
+    diabetes = {
+        "visit_timestamp": "2026-06-23T20:35:34+00:00",
+        "resolved_drugs": ["glimepiride"],
+        "severity_summary": "HIGH",
+    }
+    duplicate = dict(smoke)
+
+    merged = _merge_visits([smoke], [diabetes, duplicate])
+    assert len(merged) == 2
+    assert merged[0]["visit_timestamp"] == smoke["visit_timestamp"]
+    assert merged[1]["visit_timestamp"] == diabetes["visit_timestamp"]
+
+
+@pytest.mark.asyncio
+async def test_vertex_retrieve_merges_primary_and_broad_queries():
+    from memory.memory_service import (
+        MemoryServiceWrapper,
+        _BROAD_MEMORY_SEARCH_QUERY,
+        _visit_to_memory_entry,
+    )
+
+    smoke_visit = {
+        "visit_timestamp": "2026-06-23T19:19:19+00:00",
+        "resolved_drugs": ["aspirin", "warfarin"],
+        "severity_summary": "HIGH",
+    }
+    diabetes_visit = {
+        "visit_timestamp": "2026-06-23T20:35:34+00:00",
+        "resolved_drugs": ["glimepiride", "vildagliptin"],
+        "severity_summary": "HIGH",
+    }
+
+    class FakeSearchResponse:
+        def __init__(self, memories):
+            self.memories = memories
+
+    class FakeVertexBackend:
+        async def search_memory(self, *, app_name, user_id, query):
+            if query == "glimepiride vildagliptin":
+                return FakeSearchResponse([_visit_to_memory_entry(diabetes_visit)])
+            if query == _BROAD_MEMORY_SEARCH_QUERY:
+                return FakeSearchResponse([_visit_to_memory_entry(smoke_visit)])
+            return FakeSearchResponse([])
+
+        async def add_memory(self, **kwargs):
+            return None
+
+    svc = MemoryServiceWrapper(backend=FakeVertexBackend())
+    visits = await svc.get_medications_for_patient(
+        "patient-1",
+        search_terms=["glimepiride", "vildagliptin"],
+    )
+
+    assert len(visits) == 2
+    timestamps = {visit["visit_timestamp"] for visit in visits}
+    assert smoke_visit["visit_timestamp"] in timestamps
+    assert diabetes_visit["visit_timestamp"] in timestamps
+
+
 def test_memory_entry_skips_non_json_fact():
     from memory.memory_service import _memory_entry_to_visit
     from google.adk.memory.memory_entry import MemoryEntry
