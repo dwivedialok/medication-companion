@@ -1,4 +1,4 @@
-.PHONY: test local-auth-broker auth-broker deploy deploy-dry-run deploy-status deploy-prep playground infra infra-apply post-deploy grant-tts-iam grant-hosting-invoker deploy-auth-broker deploy-backend deploy-frontend
+.PHONY: test local-auth-broker auth-broker deploy deploy-dry-run deploy-status deploy-prep playground infra infra-apply post-deploy grant-tts-iam grant-hosting-invoker deploy-auth-broker deploy-prescription-worker deploy-async-backend deploy-backend deploy-frontend
 
 test:
 	uv run pytest
@@ -102,10 +102,21 @@ grant-hosting-invoker:
 
 # ── Auth broker (Cloud Run) ───────────────────────────────────────────────────
 # Build, push, and update the broker revision. Terraform owns the service
-# skeleton + IAM; this only changes the image and AGENT_RUNTIME_RESOURCE.
+# skeleton + IAM; this script sets AGENT_RUNTIME_RESOURCE and async env vars.
+ASYNC_PRESCRIPTION ?= false
 deploy-auth-broker:
 	GCP_PROJECT=$(GCP_PROJECT) GCP_REGION=$(GCP_REGION) \
+		ASYNC_PRESCRIPTION=$(ASYNC_PRESCRIPTION) \
+		FIRESTORE_PROJECT=$(GCP_PROJECT) \
 		./deploy/auth_broker/deploy.sh
+
+deploy-prescription-worker:
+	GCP_PROJECT=$(GCP_PROJECT) GCP_REGION=$(GCP_REGION) \
+		GCS_BUCKET=$(GCS_BUCKET) FIRESTORE_PROJECT=$(GCP_PROJECT) \
+		./deploy/workers/deploy.sh
+
+# Async prescription path only — no Agent Runtime redeploy (same Reasoning Engine).
+deploy-async-backend: deploy-auth-broker deploy-prescription-worker
 
 # Convenience: full backend deploy in the right order.
 # Agent Runtime first (produces deployment_metadata.json), then auth broker
@@ -114,10 +125,13 @@ deploy-backend: deploy deploy-auth-broker
 
 # Convenience: Flutter PWA build + Firebase Hosting deploy.
 # Requires `flutterfire configure` was run once for this project.
+# Match broker: ASYNC_PRESCRIPTION=true when broker async is enabled (Phase C).
 FIREBASE_PROJECT ?= $(GCP_PROJECT)
 HOSTING_URL ?= https://$(FIREBASE_PROJECT).web.app
+ASYNC_PRESCRIPTION ?= false
 deploy-frontend:
 	cd frontend && flutter build web --release \
 		--dart-define=API_BASE_URL=$(HOSTING_URL) \
-		--dart-define=ENVIRONMENT=production
+		--dart-define=ENVIRONMENT=production \
+		--dart-define=ASYNC_PRESCRIPTION=$(ASYNC_PRESCRIPTION)
 	firebase deploy --only hosting --project $(FIREBASE_PROJECT)

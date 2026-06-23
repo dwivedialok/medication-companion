@@ -69,6 +69,92 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _poll_job(base: str, headers: dict, job_id: str, max_wait: int) -> dict:
+    """Poll GET /jobs/{id} until done or failed."""
+    import time
+
+    delays = [2, 3, 5, 5, 10, 10, 15, 15, 15, 10]
+    elapsed = 0
+    for delay in delays:
+        if elapsed >= max_wait:
+            break
+        time.sleep(delay)
+        elapsed += delay
+        resp = httpx.get(
+            f"{base}/jobs/{job_id}",
+            headers=headers,
+            timeout=30,
+        )
+        if resp.status_code != 200:
+            print(f"ERROR: GET /jobs/{job_id} HTTP {resp.status_code}")
+            print(resp.text[:500])
+            sys.exit(1)
+        if not resp.content.strip():
+            print(f"ERROR: GET /jobs/{job_id} returned empty body (HTTP 200).")
+            print(
+                "       If using the Hosting URL, redeploy firebase.json so /jobs/** "
+                "rewrites to the broker:\n"
+                "         firebase deploy --only hosting --project $GCP_PROJECT"
+            )
+            sys.exit(1)
+        try:
+            job = resp.json()
+        except json.JSONDecodeError:
+            preview = resp.text[:300].replace("\n", " ")
+            print(f"ERROR: GET /jobs/{job_id} returned non-JSON (HTTP 200).")
+            print(f"       Body preview: {preview!r}")
+            print(
+                "       Redeploy Hosting with /jobs/** rewrite, or poll the broker "
+                "Cloud Run URL directly with the same Bearer token."
+            )
+            sys.exit(1)
+        status = job.get("status")
+        print(f"   Job status: {status}")
+        if status == "done":
+            result = job.get("result")
+            if not result:
+                print("ERROR: Job done but result missing")
+                sys.exit(1)
+            return result
+        if status == "failed":
+            err = job.get("error") or {}
+            code = err.get("code", "pipeline_error")
+            message = err.get("message", "Analysis failed.")
+            if code == "gate1_reject":
+                print(f"✗  HTTP 422 (gate1_reject)\n\n{json.dumps(job, indent=2)}")
+                sys.exit(0)
+            print(f"✗  Job failed: {message}\n")
+            sys.exit(1)
+    print(f"ERROR: Job did not complete within {max_wait}s")
+    sys.exit(1)
+
+
+def _print_result(body: dict, pretty: str) -> None:
+    if pretty == "true":
+        print(json.dumps(body, indent=2, ensure_ascii=False))
+    else:
+        print(json.dumps(body, ensure_ascii=False))
+    print()
+    print("─" * 50)
+    print(f"  Severity   : {body.get('overall_severity', '?')}")
+    drugs = body.get("resolved_drugs", [])
+    print(f"  Drugs      : {len(drugs)} resolved")
+    for d in drugs:
+        print(
+            f"               {d.get('raw_name')} → {d.get('generic_name')} "
+            f"[{d.get('tag')}]"
+        )
+    interactions = body.get("interactions", [])
+    print(f"  Interactions: {len(interactions)}")
+    for ix in interactions:
+        print(
+            f"               {ix.get('drug_a')} + {ix.get('drug_b')} "
+            f"→ {ix.get('severity')}"
+        )
+    print(f"  Audio URL  : {body.get('audio_url', '(none)')}")
+    print("─" * 50)
+
+
 def main() -> None:
     args = parse_args()
 
@@ -170,7 +256,7 @@ def main() -> None:
         content_type = direct_data.get("content_type", mime_type)
         print(f"   Uploaded to {gcs_uri}")
 
-    # Step 3: analyse
+    # Step 3: analyse (sync 200 or async 202 + poll)
     print("   Running pipeline (~20-40s)…\n")
     try:
         response = httpx.post(
@@ -187,6 +273,22 @@ def main() -> None:
         print(f"ERROR: Request timed out after {args.timeout}s")
         sys.exit(1)
 
+    if response.status_code == 202:
+        try:
+            enqueue = response.json()
+        except Exception:
+            print(response.text)
+            sys.exit(1)
+        job_id = enqueue.get("job_id")
+        if not job_id:
+            print("ERROR: Async response missing job_id")
+            sys.exit(1)
+        print(f"   Job enqueued: {job_id}")
+        body = _poll_job(base, headers, job_id, args.timeout)
+        print("✓  HTTP 200 (async job complete)\n")
+        _print_result(body, args.pretty)
+        sys.exit(0)
+
     status_label = "✓" if response.status_code == 200 else "✗"
     print(f"{status_label}  HTTP {response.status_code}\n")
 
@@ -196,33 +298,16 @@ def main() -> None:
         print(response.text)
         sys.exit(0 if response.status_code == 200 else 1)
 
+    if response.status_code == 200:
+        _print_result(body, args.pretty)
+        sys.exit(0)
+
     if args.pretty == "true":
         print(json.dumps(body, indent=2, ensure_ascii=False))
     else:
         print(json.dumps(body, ensure_ascii=False))
 
-    if response.status_code == 200:
-        print()
-        print("─" * 50)
-        print(f"  Severity   : {body.get('overall_severity', '?')}")
-        drugs = body.get("resolved_drugs", [])
-        print(f"  Drugs      : {len(drugs)} resolved")
-        for d in drugs:
-            print(
-                f"               {d.get('raw_name')} → {d.get('generic_name')} "
-                f"[{d.get('tag')}]"
-            )
-        interactions = body.get("interactions", [])
-        print(f"  Interactions: {len(interactions)}")
-        for ix in interactions:
-            print(
-                f"               {ix.get('drug_a')} + {ix.get('drug_b')} "
-                f"→ {ix.get('severity')}"
-            )
-        print(f"  Audio URL  : {body.get('audio_url', '(none)')}")
-        print("─" * 50)
-
-    sys.exit(0 if response.status_code == 200 else 1)
+    sys.exit(1)
 
 
 if __name__ == "__main__":

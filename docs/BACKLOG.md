@@ -67,11 +67,7 @@ GCS upload URLs). After upload, **enqueue** analysis work on Pub/Sub and return
 immediately; a separate worker invokes the same Agent Runtime pipeline and
 persists/notifies results.
 
-**Not needed for:** capstone demo — current sync path via auth broker + Agent
-Runtime is sufficient.
-
-**Needed for:** production scale, resilient retries, ambient agents (Day 4
-follow-up), long-running jobs without blocking Flutter/Hosting.
+**Needed for:** production scale, resilient retries, ambient agents (Day 4 follow-up), long-running jobs without blocking Flutter/Hosting.
 
 **Proposed architecture:**
 
@@ -92,13 +88,15 @@ Client polls GET /jobs/{id} or listens via Firestore / FCM (push out of scope fo
 
 **Implementation sketch:**
 
-1. **Terraform:** Pub/Sub topic + subscription, dead-letter topic, worker Cloud Run
-   service account (`roles/pubsub.subscriber`, `roles/aiplatform.user`), optional
-   Firestore collection for job state.
+1. **Terraform:** Pub/Sub topic + **push** subscription, dead-letter topic, worker
+   Cloud Run service account. Broker SA: `roles/pubsub.publisher`. Worker SA:
+   `roles/aiplatform.user`, `roles/datastore.user` (Firestore). Push delivery uses
+   the Pub/Sub service agent (`roles/run.invoker` on the worker) — not an app_sa
+   pull loop. Optional Firestore collection for job state.
 2. **Auth broker:** New endpoints or evolve `/prescription` — publish message after
    JWT + `gcs_uri` validation; sync path can remain behind a flag during migration.
-3. **Worker:** New module (e.g. `backend/workers/prescription_worker.py`) — pull
-   message, call existing `run_prescription_pipeline`, update job store.
+3. **Worker:** New module (e.g. `backend/workers/prescription_worker.py`) — receive
+   push message, call existing `run_prescription_pipeline`, update job store.
 4. **Flutter:** Upload flow unchanged; after enqueue, poll `GET /jobs/{id}` or show
    “processing” UI until `status=done`.
 5. **Observability:** Log `job_id` across broker → Pub/Sub → worker → Runtime;
@@ -124,6 +122,78 @@ Client polls GET /jobs/{id} or listens via Firestore / FCM (push out of scope fo
 **Files (expected):** new worker module, `backend/auth_broker/main.py`,
 `backend/auth_broker/agent_client.py`, Terraform Pub/Sub resources, Flutter job
 polling UI, specs scenario in `specs/`.
+
+**See also:** [Why worker + streamQuery, not ADK `/trigger/pubsub`](#why-worker--streamquery-not-adk-triggerpubsub) (architecture decision).
+
+### Why worker + streamQuery, not ADK `/trigger/pubsub`
+
+**Priority:** Documentation (architecture decision record) · **Status:** Open
+
+**Context:** The Kaggle Day 5 / ADK ambient-agent pattern often shows Pub/Sub
+**push** into an ADK trigger endpoint (`/apps/{app_name}/trigger/pubsub`) on a
+Cloud Run deploy you operate. This project instead uses:
+
+```
+Pub/Sub (push) → prescription worker (Cloud Run) → Agent Runtime streamQuery
+```
+
+**Decision:** Keep Agent Runtime **private** and keep the **auth broker** as the
+only client-facing HTTP API. Use a thin worker as the Pub/Sub consumer.
+
+**Reasons:**
+
+1. **Deploy model.** The pipeline is deployed to **Vertex AI Agent Runtime**
+   (Reasoning Engine) via `agents-cli deploy`, not `adk deploy cloud_run
+   --trigger_sources=pubsub`. Runtime exposes `:streamQuery` to callers with
+   `roles/aiplatform.user` — not a public `/trigger/pubsub` URL on Hosting.
+   See [`backend/auth_broker/agent_client.py`](../backend/auth_broker/agent_client.py)
+   and [`AGENTS.md`](../AGENTS.md) hard rule #6.
+
+2. **Security perimeter.** ADK trigger endpoints are HTTP ingress on the agent
+   service. Opening that for Pub/Sub push would require duplicating concerns
+   the auth broker already owns: Firebase JWT → `patient_id`, GCS upload binding,
+   tenant isolation, and safe error surfaces. Runtime must not become a second
+   public entry point.
+
+3. **Tenancy and job orchestration.** ADK triggers auto-derive `user_id` from
+   the Pub/Sub subscription name and create ephemeral sessions per message.
+   Prescription analysis needs **verified Firebase UID**, `prescriptions/{patient_id}/…`
+   GCS binding, durable **job_id** in Firestore, and assembly into
+   `PrescriptionResult` — orchestration that belongs in broker + worker, not
+   in a raw trigger handler.
+
+4. **Same agent code, different ingress.** The worker calls existing
+   `run_prescription_pipeline()` — no fork of the 5-agent pipeline. Pub/Sub is
+   only the **async buffer** between HTTP enqueue and Runtime execution.
+
+5. **Course alignment without wrong abstraction.** Day 5's three-layer layout
+   (event ingestion → UI API → agent runtime) is preserved. We substitute
+   "ADK trigger URL" with "worker + streamQuery" because Runtime is a managed
+   private backend, not our Cloud Run ADK api_server.
+
+**Push vs pull:** Use **Pub/Sub push subscription** (not pull) — pipeline is
+~20–40s, well under the 10-minute push ack deadline. Pull is for >10 min or
+batch worker pools only.
+
+**Multi-client egress:** Skipping ADK trigger does **not** limit use beyond
+Flutter. ADK trigger solves **ingress** (how events enter the agent). Clients
+(MCP, CLI, partner REST) read results via **`GET /jobs/{job_id}`** on the auth
+broker — client-agnostic HTTP, Firebase JWT tenancy, stable `PrescriptionResult`
+shape. Firestore is backend job storage only; optional Flutter Firestore listener
+or FCM push can layer on later without changing that contract.
+
+**When ADK trigger might make sense later (optional, separate backlog item):**
+
+- Pure ambient ingress with **no Flutter** (e.g. GCS `OBJECT_FINALIZE` → agent)
+  where no job store or patient JWT is needed
+- A **second** Cloud Run ADK deploy used only for internal event processing,
+  still not exposed on Firebase Hosting
+
+That would be an **additional ingress**, not a replacement for the auth broker
+job API.
+
+**Files:** this section only; implementation remains under "Pub/Sub-backed
+prescription analysis" above.
 
 ---
 

@@ -5,7 +5,8 @@ Thin Cloud Run token broker for Medication Companion.
 Endpoints:
   GET  /health       — health check (no auth)
   POST /upload-url   — issue GCS signed PUT URL for prescription image upload
-  POST /prescription — analyse image at gs:// URI via Agent Runtime (or local runner)
+  POST /prescription — analyse image at gs:// URI (sync or async via ASYNC_PRESCRIPTION)
+  GET  /jobs/{job_id} — job status + result when async (Phase A)
 
 Firebase JWT is verified in middleware; patient_id comes from the token UID,
 never from the request body.
@@ -14,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import os
+import uuid
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Request, UploadFile, status
@@ -21,24 +23,30 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from auth_broker.agent_client import run_prescription_pipeline
-from auth_broker.assembly import assemble_prescription_result
-from auth_broker.auth import firebase_auth_middleware
-from auth_broker.gcs import create_upload_target, gcs_upload_hint, validate_mime
-from pipeline_output import (
-    find_education_output,
-    find_gate1_reject,
-    find_localisation_output,
-    find_resolver_output,
-    find_safety_output,
-    find_safety_tool_result,
-    log_event_authors,
+from auth_broker.gcs import (
+    assert_gcs_uri_owned_by_patient,
+    create_upload_target,
+    gcs_upload_hint,
+    validate_mime,
 )
-from schemas import PrescriptionResult
+from auth_broker.job_store import get_job_store
+from auth_broker.prescription_handler import run_sync_prescription
+from auth_broker.pubsub_client import build_job_message, get_job_publisher
+from auth_broker.auth import firebase_auth_middleware
+from schemas import (
+    JobError,
+    PrescriptionJobEnqueueResponse,
+    PrescriptionJobStatus,
+)
 
 load_dotenv()
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+ASYNC_PRESCRIPTION = os.getenv("ASYNC_PRESCRIPTION", "false").lower() in (
+    "true",
+    "1",
+    "yes",
+)
 
 if ENVIRONMENT == "production":
     import google.cloud.logging
@@ -90,7 +98,10 @@ class UploadUrlResponse(BaseModel):
 
 
 class PrescriptionRequest(BaseModel):
-    gcs_uri: str = Field(..., description="gs://bucket/prescriptions/<uuid>.jpg")
+    gcs_uri: str = Field(
+        ...,
+        description="gs://bucket/prescriptions/{patient_id}/{uuid}.jpg",
+    )
     language: str = Field(
         default="en-IN",
         description="Target language: hi-IN | ta-IN | te-IN | bn-IN | en-IN",
@@ -101,21 +112,72 @@ class PrescriptionRequest(BaseModel):
     )
 
 
+def _validate_prescription_input(
+    body: PrescriptionRequest, patient_id: str
+) -> tuple[str | None, JSONResponse | None]:
+    if not body.gcs_uri.startswith("gs://"):
+        return None, JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "error": "invalid_gcs_uri",
+                "message": "gcs_uri must start with gs://",
+            },
+        )
+    try:
+        mime_type = validate_mime(body.content_type)
+    except ValueError as exc:
+        return None, JSONResponse(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            content={"error": "unsupported_media_type", "message": str(exc)},
+        )
+    try:
+        assert_gcs_uri_owned_by_patient(body.gcs_uri, patient_id)
+    except ValueError as exc:
+        return None, JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "error": "invalid_gcs_uri",
+                "message": str(exc),
+            },
+        )
+    return mime_type, None
+
+
+def _job_error_response(error) -> JSONResponse:
+    if error.code == "gate1_reject":
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={
+                "error": "gate1_reject",
+                "message": error.message,
+                "reason": error.reason,
+            },
+        )
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "error": error.code,
+            "message": error.message,
+        },
+    )
+
+
 @app.get("/health")
 async def health() -> dict:
     return {
         "status": "healthy",
         "service": "medication-companion-auth-broker",
         "environment": ENVIRONMENT,
+        "async_prescription": ASYNC_PRESCRIPTION,
     }
 
 
 @app.post("/upload-url", response_model=UploadUrlResponse)
 async def upload_url(body: UploadUrlRequest, request: Request):
     """Issue a signed GCS PUT URL. Client uploads the image, then calls /prescription."""
-    _ = request.state.patient_id  # noqa: F841 — ensures auth ran
+    patient_id: str = request.state.patient_id
     try:
-        target = create_upload_target(body.content_type)
+        target = create_upload_target(body.content_type, patient_id)
     except ValueError as exc:
         return JSONResponse(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
@@ -166,8 +228,6 @@ if ENVIRONMENT == "local":
                 content={"error": "empty_image", "message": "Image file is empty."},
             )
 
-        import uuid
-
         from auth_broker.gcs import _EXT_FOR_MIME, gcs_bucket
 
         ext = _EXT_FOR_MIME.get(mime, "jpg")
@@ -192,78 +252,99 @@ if ENVIRONMENT == "local":
         return {"gcs_uri": gcs_uri, "content_type": mime}
 
 
-@app.post("/prescription", response_model=PrescriptionResult)
+@app.post("/prescription")
 async def analyze_prescription(body: PrescriptionRequest, request: Request):
     patient_id: str = request.state.patient_id
+    mime_type, err = _validate_prescription_input(body, patient_id)
+    if err is not None:
+        return err
+    assert mime_type is not None
 
-    if not body.gcs_uri.startswith("gs://"):
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={
-                "error": "invalid_gcs_uri",
-                "message": "gcs_uri must start with gs://",
-            },
-        )
-
-    try:
-        mime_type = validate_mime(body.content_type)
-    except ValueError as exc:
-        return JSONResponse(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            content={"error": "unsupported_media_type", "message": str(exc)},
-        )
-
-    try:
-        session_id, events = await run_prescription_pipeline(
+    if ASYNC_PRESCRIPTION:
+        return await _enqueue_prescription(
             patient_id=patient_id,
             gcs_uri=body.gcs_uri,
-            mime_type=mime_type,
             language=body.language,
-        )
-    except Exception as exc:
-        logger.error("Pipeline execution failed: %s", exc, exc_info=True)
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={
-                "error": "pipeline_error",
-                "message": "Analysis failed. Please try again.",
-            },
+            content_type=mime_type,
         )
 
-    gate1 = find_gate1_reject(events)
-    if gate1:
-        return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content={
-                "error": "gate1_reject",
-                "message": gate1.user_message,
-                "reason": gate1.reason,
-            },
-        )
-
-    education = find_education_output(events)
-    if education is None:
-        log_event_authors(events, session_id)
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={
-                "error": "pipeline_error",
-                "message": "Analysis failed. Please try again.",
-            },
-        )
-
-    localisation = find_localisation_output(events)
-    safety_tool = find_safety_tool_result(events)
-    safety_output = find_safety_output(events)
-    resolver = find_resolver_output(events)
-    return assemble_prescription_result(
-        session_id,
-        education,
-        localisation,
-        resolver=resolver,
-        safety_tool=safety_tool,
-        safety_output=safety_output,
+    result, error = await run_sync_prescription(
+        patient_id=patient_id,
+        gcs_uri=body.gcs_uri,
+        mime_type=mime_type,
+        language=body.language,
     )
+    if error is not None:
+        return _job_error_response(error)
+    return result
+
+
+async def _enqueue_prescription(
+    *,
+    patient_id: str,
+    gcs_uri: str,
+    language: str,
+    content_type: str,
+) -> JSONResponse:
+    job_id = uuid.uuid4().hex
+    job_store = get_job_store()
+    publisher = get_job_publisher()
+
+    await job_store.create_job(
+        job_id=job_id,
+        patient_id=patient_id,
+        gcs_uri=gcs_uri,
+        language=language,
+        content_type=content_type,
+    )
+    message = build_job_message(
+        job_id=job_id,
+        patient_id=patient_id,
+        gcs_uri=gcs_uri,
+        language=language,
+        content_type=content_type,
+    )
+    try:
+        await publisher.publish(message)
+    except Exception as exc:
+        logger.error("Failed to publish job %s: %s", job_id, exc, exc_info=True)
+        await job_store.set_failed(
+            job_id,
+            JobError(
+                code="internal_error",
+                message="Could not queue analysis. Please try again.",
+            ),
+        )
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "error": "enqueue_error",
+                "message": "Could not queue analysis. Please try again.",
+            },
+        )
+
+    logger.info("Enqueued prescription job %s for patient %s", job_id, patient_id)
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED,
+        content=PrescriptionJobEnqueueResponse(job_id=job_id).model_dump(),
+    )
+
+
+@app.get("/jobs/{job_id}", response_model=PrescriptionJobStatus)
+async def get_prescription_job(job_id: str, request: Request):
+    patient_id: str = request.state.patient_id
+    job = await get_job_store().get_job(job_id)
+    if job is None:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"error": "not_found", "message": "Job not found."},
+        )
+    if job.patient_id != patient_id:
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"error": "forbidden", "message": "Job not found."},
+        )
+    return job
 
 
 @app.exception_handler(Exception)
@@ -275,4 +356,8 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     )
 
 
-logger.info("Auth broker started (env=%s)", ENVIRONMENT)
+logger.info(
+    "Auth broker started (env=%s, async_prescription=%s)",
+    ENVIRONMENT,
+    ASYNC_PRESCRIPTION,
+)

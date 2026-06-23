@@ -11,6 +11,17 @@ os.environ.setdefault("ENVIRONMENT", "local")
 os.environ.setdefault("DEV_PATIENT_ID", "broker-test-patient")
 os.environ.setdefault("MEMORY_BACKEND", "local")
 os.environ.setdefault("USE_LOCAL_RUNNER", "true")
+os.environ.setdefault("JOB_STORE_BACKEND", "memory")
+
+
+@pytest.fixture(autouse=True)
+def _broker_env(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "local")
+    monkeypatch.setenv("DEV_PATIENT_ID", "broker-test-patient")
+    monkeypatch.setenv("JOB_STORE_BACKEND", "memory")
+    import auth_broker.main as main_mod
+
+    monkeypatch.setattr(main_mod, "ASYNC_PRESCRIPTION", False)
 
 
 @pytest.fixture
@@ -36,7 +47,7 @@ async def test_upload_url_requires_no_bearer_in_local(broker_app):
         "auth_broker.main.create_upload_target",
         return_value={
             "upload_url": "https://storage.googleapis.com/signed",
-            "gcs_uri": "gs://test-bucket/prescriptions/abc.jpg",
+            "gcs_uri": "gs://test-bucket/prescriptions/broker-test-patient/abc.jpg",
             "content_type": "image/jpeg",
             "expires_in_seconds": "900",
         },
@@ -86,11 +97,11 @@ async def test_prescription_gate1_reject(broker_app):
     mock_events = [{"author": "prescription_reader", "content": {"parts": []}}]
 
     with patch(
-        "auth_broker.main.run_prescription_pipeline",
+        "auth_broker.prescription_handler.run_prescription_pipeline",
         new=AsyncMock(return_value=("sess-1", mock_events)),
     ):
         with patch(
-            "auth_broker.main.find_gate1_reject",
+            "auth_broker.prescription_handler.find_gate1_reject",
             return_value=reject,
         ):
             async with AsyncClient(
@@ -99,7 +110,7 @@ async def test_prescription_gate1_reject(broker_app):
                 resp = await client.post(
                     "/prescription",
                     json={
-                        "gcs_uri": "gs://bucket/prescriptions/x.jpg",
+                        "gcs_uri": "gs://bucket/prescriptions/broker-test-patient/x.jpg",
                         "language": "en-IN",
                     },
                 )

@@ -31,7 +31,10 @@ make local-auth-broker
 
 > **Naming:** This is the **HTTP auth broker** (Firebase → GCS → Agent Runtime).
 > A future **Pub/Sub** path for ambient agents is separate and will not reuse this
-> Makefile target.
+> Makefile target. Architecture: Pub/Sub push → prescription worker → private
+> Agent Runtime `streamQuery` (not ADK `/trigger/pubsub`); clients poll
+> `GET /jobs/{job_id}`. See [`docs/BACKLOG.md`](../../docs/BACKLOG.md) →
+> "Why worker + streamQuery, not ADK `/trigger/pubsub`".
 
 Flutter / script clients point `apiBaseUrl` at `http://localhost:8080`.
 

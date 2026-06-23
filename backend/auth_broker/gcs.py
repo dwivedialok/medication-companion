@@ -91,9 +91,11 @@ def _signed_url(
     return blob.generate_signed_url(**kwargs)
 
 
-def create_upload_target(content_type: str) -> dict[str, str]:
+def create_upload_target(content_type: str, patient_id: str) -> dict[str, str]:
     """
     Return a V4 signed PUT URL and the destination gs:// URI.
+
+    Objects are stored under prescriptions/{patient_id}/ for tenant binding.
 
     Raises:
         ValueError: unsupported MIME type.
@@ -103,7 +105,7 @@ def create_upload_target(content_type: str) -> dict[str, str]:
 
     mime = validate_mime(content_type)
     ext = _EXT_FOR_MIME.get(mime, "jpg")
-    blob_name = f"prescriptions/{uuid.uuid4().hex}.{ext}"
+    blob_name = f"prescriptions/{patient_id}/{uuid.uuid4().hex}.{ext}"
     bucket_name = gcs_bucket()
     gcs_uri = f"gs://{bucket_name}/{blob_name}"
 
@@ -122,3 +124,27 @@ def create_upload_target(content_type: str) -> dict[str, str]:
         "content_type": mime,
         "expires_in_seconds": "900",
     }
+
+
+def assert_gcs_uri_owned_by_patient(gcs_uri: str, patient_id: str) -> None:
+    """
+    Reject gcs_uri unless it points at prescriptions/{patient_id}/…
+
+    URIs outside prescriptions/ (e.g. eval/ fixtures) are not patient uploads
+    and are rejected for /prescription analysis.
+    """
+    if not gcs_uri.startswith("gs://"):
+        raise ValueError("gcs_uri must start with gs://")
+
+    path = gcs_uri[len("gs://") :]
+    _, _, blob = path.partition("/")
+    if not blob:
+        raise ValueError("Invalid GCS URI")
+
+    parts = blob.split("/")
+    if len(parts) < 3 or parts[0] != "prescriptions":
+        raise ValueError(
+            "gcs_uri must be a prescription upload under prescriptions/{patient_id}/"
+        )
+    if parts[1] != patient_id:
+        raise ValueError("gcs_uri does not belong to the authenticated patient")

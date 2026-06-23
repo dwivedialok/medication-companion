@@ -50,7 +50,9 @@ Please analyse this prescription image. Target language: en-IN
 | Fastest local full HTTP JSON | **A1** | `USE_LOCAL_RUNNER=true` + `test_prescription.py` → [A1](#a1--local-broker--local-adk-runner) |
 | Deployed Runtime + per-agent trace | **A2b** | `agents-cli run --url … --file` → [A2b](#a2b--deployed-agent-runtime-smoke-agents-cli-run--recommended) |
 | Deployed Runtime + HTTP JSON | **A2b-broker** | `USE_LOCAL_RUNNER=false` + `test_prescription.py` → [A2b-broker](#a2b-broker--local-broker--deployed-runtime-prescriptionresult-json) |
-| Prod path + Firebase | **A3 / C** | Hosted URL + JWT → [A3](#a3--cloud-agent-runtime--cloud-auth-broker) |
+| Prod path + Firebase (sync) | **A3** | Hosted URL + JWT → [A3](#a3--cloud-agent-runtime--cloud-auth-broker) |
+| Prod path + async (Pub/Sub worker) | **A3-async** | Same as A3 + worker + Hosting `/jobs/**` → [A3-async](#a3-async--cloud-async-prescription-pubsub--worker) |
+| Full prod UI | **C** | Hosted PWA → [C](#c--full-cloud-e2e) |
 
 ---
 
@@ -71,7 +73,21 @@ make infra-apply GCP_PROJECT=$GCP_PROJECT
 # Terraform default bucket (NOT ${GCP_PROJECT}-uploads)
 gcloud storage cp data/drugs.db gs://medication-companion-uploads/artifacts/drugs.db
 cd frontend && flutterfire configure --project=$GCP_PROJECT
+
+# Async prescriptions (once): Firestore Native (default), us-central1 — Firebase Console
+# Pub/Sub push → worker IAM (once per project):
+#   GCP_PROJECT=$GCP_PROJECT ./scripts/grant_pubsub_worker_push.sh
+#   (or re-run make infra-apply after pubsub.tf IAM updates)
 ```
+
+**Firebase credentials for A3 / A3-async** (in repo-root `.env`, not committed):
+
+```bash
+# FIREBASE_TEST_EMAIL=...
+# FIREBASE_TEST_PASSWORD=...
+```
+
+Token helper reads `.env` automatically: [`scripts/firebase_id_token.py`](../scripts/firebase_id_token.py).
 
 ---
 
@@ -90,6 +106,9 @@ flowchart LR
 
   subgraph gcp["GCP"]
     Broker["Auth broker\nCloud Run"]
+    Worker["Prescription worker\nCloud Run"]
+    PS["Pub/Sub\nprescription-jobs"]
+    FS["Firestore\njobs/"]
     GCS["GCS bucket\nuploads + drugs.db"]
     RT["Agent Runtime\nReasoning Engine"]
     Gemini["Vertex / Gemini"]
@@ -97,15 +116,30 @@ flowchart LR
 
   Browser --> Auth
   Browser --> Host
-  Host -->|"rewrite /upload-url, /prescription"| Broker
+  Host -->|"rewrite /upload-url, /prescription, /jobs/**"| Broker
   Broker --> GCS
-  Broker --> RT
+  Broker --> FS
+  Broker -->|"async: publish"| PS
+  PS -->|"push"| Worker
+  Worker --> FS
+  Worker --> RT
+  Broker -->|"sync: streamQuery"| RT
   RT --> GCS
   RT --> Gemini
 ```
 
+**Sync path:** broker calls Runtime inline (`POST /prescription` → 200).
+
+**Async path:** broker enqueues (`202` + `job_id`); worker runs Runtime; client polls
+`GET /jobs/{job_id}` (same Firebase JWT). Firestore is backend-only — clients never use
+the Firestore SDK.
+
+**Hosting vs broker:** `*.web.app` is Firebase Hosting (static PWA + rewrites). API logic
+runs on Cloud Run (`medication-companion-broker`). Same hostname in prod; different services.
+
 **Local dev shortcut:** Flutter or `test_prescription.py` → `localhost:8080` broker → either
-**local ADK Runner** (A1) or **remote Agent Runtime** (B2).
+**local ADK Runner** (A1) or **remote Agent Runtime** (B2). Local async:
+`ASYNC_PRESCRIPTION=true JOB_STORE_BACKEND=memory PUBSUB_BACKEND=inline USE_LOCAL_RUNNER=true`.
 
 ---
 
@@ -117,7 +151,8 @@ flowchart LR
 | **A2** | `make playground` or pytest | Gemini (via API) | ADK web UI / pytest | Agent wiring only — **not** deployed Runtime revision |
 | **A2b** | `agents-cli run` (CLI) | Deployed Agent Runtime + GCS + Gemini | `agents-cli run --url … --file` | Same revision as prod; vision + safety + cloud TTS |
 | **A2b-broker** | `test_prescription.py` + local broker | Agent Runtime + broker assembly | script, `USE_LOCAL_RUNNER=false` | Same as A2b but **PrescriptionResult** JSON via HTTP |
-| **A3** | `test_prescription.py` | Agent Runtime + broker + GCS + Auth | script → Hosting URL | Backend HTTP path + Firebase JWT + remote Runtime |
+| **A3** | `test_prescription.py` | Agent Runtime + broker + GCS + Auth | script → Hosting URL | Backend HTTP path + Firebase JWT + remote Runtime (**sync** 200) |
+| **A3-async** | `test_prescription.py` | + Pub/Sub + worker + Firestore | same + poll `GET /jobs/{id}` | Full async enqueue + worker + job API |
 | **B1** | Flutter + broker + local Runner | Gemini, GCS | `flutter run` | Flutter UI + same stack as A1 |
 | **B2** | Flutter + broker | Agent Runtime + GCS + Gemini | `flutter run` + env | Flutter UI against **deployed** Runtime |
 | **C** | Browser only | Everything | Hosted PWA | Full prod path incl. Hosting rewrites |
@@ -137,7 +172,8 @@ flowchart LR
 | **A2** | §0. Optional: §2 step 1 if you also want `make deploy-status` on a live Runtime. |
 | **A2b** | §0 + **§2 step 1 only** (`make deploy` + `deploy-status`). No auth broker or Hosting. |
 | **A2b-broker** | Same as A2b + local broker running (no `deploy-auth-broker` required if broker code unchanged). |
-| **A3** | §0 + §1 + **§2** (`make deploy-backend`). Hosting optional if you hit broker via Hosting URL. |
+| **A3** | §0 + §1 + **§2** (`make deploy-backend`). Hosting optional if broker Cloud Run URL used directly. |
+| **A3-async** | A3 + **§2.1** ([runbook](deployment_runbook.md)): `make infra-apply`, `make deploy-async-backend`, `grant_pubsub_worker_push.sh`, **`firebase deploy --only hosting`** ( `/jobs/**` rewrite), `ASYNC_PRESCRIPTION=true` on broker. **No** new Agent Runtime deploy. |
 | **B1** | Same as A1. |
 | **B2** | Same as A3 (need deployed Agent Runtime + `deployment_metadata.json`). |
 | **C** | §0 + §1 + **§2 + §3** (`make deploy-backend` then `make deploy-frontend`). |
@@ -148,8 +184,10 @@ Quick deploy reference:
 # §2 — Agent Runtime + auth broker
 make deploy-backend GCP_PROJECT=$GCP_PROJECT GCP_REGION=$GCP_REGION
 
-# §3 — Flutter PWA on Hosting
+# §3 — Flutter PWA on Hosting (required for A3-async GET /jobs via web.app)
 make deploy-frontend GCP_PROJECT=$GCP_PROJECT
+# Or rewrites only (no Flutter rebuild):
+# firebase deploy --only hosting --project $GCP_PROJECT
 ```
 
 ---
@@ -355,33 +393,110 @@ uv run python scripts/inspect_memory_bank.py --patient-id YOUR_FIREBASE_UID
 
 ---
 
-### A3 · Cloud Agent Runtime + cloud auth broker
+### A3 · Cloud Agent Runtime + cloud auth broker (sync)
 
 **Tests:** Firebase JWT, signed GCS PUT, broker → Runtime, full backend path (no Flutter UI).
+Default broker deploy uses **`ASYNC_PRESCRIPTION=false`** → **`POST /prescription` returns HTTP 200**
+with full `PrescriptionResult` in one response.
 
 **Deploy:** runbook §2 (`make deploy-backend`).
 
 ```bash
-# Health (no auth)
+# Health (no auth) — check async flag
 curl -s https://$GCP_PROJECT.web.app/health | jq .
 
-# Full pipeline — needs a Firebase ID token (Email/Password user in Console)
-export FIREBASE_ID_TOKEN="<from browser DevTools after sign-in on hosted app>"
+# Credentials in .env or export FIREBASE_TEST_EMAIL / FIREBASE_TEST_PASSWORD
+export FIREBASE_ID_TOKEN="$(uv run python scripts/firebase_id_token.py --print-token-only)"
 
 uv run python scripts/test_prescription.py "$RX_IMAGE" \
   --url https://$GCP_PROJECT.web.app \
   --token "$FIREBASE_ID_TOKEN"
 ```
 
-**Get a token quickly:** sign in at `https://$GCP_PROJECT.web.app`, open DevTools →
-Application → look at network request `Authorization` header, or console:
+**Get a token:** [`scripts/firebase_id_token.py`](../scripts/firebase_id_token.py) (reads repo-root
+`.env`). Add `--sign-up` once to create a dev smoke user. **Alternative (browser):** sign in at
+`https://$GCP_PROJECT.web.app`, DevTools → `firebase.auth().currentUser.getIdToken().then(console.log)`.
 
-```javascript
-// after sign-in on the hosted app
-firebase.auth().currentUser.getIdToken().then(console.log)
+**Pass:** HTTP **200**; same JSON shape as A1; broker logs show `Running pipeline via Agent Runtime`.
+
+**Auth broker API (all protected routes need `Authorization: Bearer <Firebase ID token>`):**
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/health` | Liveness (no auth) |
+| POST | `/upload-url` | Signed GCS PUT URL |
+| POST | `/prescription` | Analyze image at `gs://…` |
+| GET | `/jobs/{job_id}` | Poll async job (when async enabled) |
+
+---
+
+### A3-async · Cloud async prescription (Pub/Sub + worker)
+
+**Tests:** Same client contract as A3, but **`POST /prescription` → 202** + `job_id`, then
+**poll `GET /jobs/{job_id}`** until `status` is `done` or `failed`. Any HTTP client (script,
+Flutter, future MCP) uses the same three steps — no Firestore SDK on the client.
+
+**Deploy:** [runbook §2.1](deployment_runbook.md) — **does not require `make deploy`** (Agent
+Runtime unchanged) unless you also changed agent code.
+
+```bash
+export GCP_PROJECT=medication-companion-dev
+export RX_IMAGE=data/sample/smoke_4drug_2interactions.png
+
+# 1. Infra + worker + broker images (async env, flag still false until step 4)
+make infra-apply GCP_PROJECT=$GCP_PROJECT
+GCP_PROJECT=$GCP_PROJECT ./scripts/grant_pubsub_worker_push.sh
+make deploy-async-backend GCP_PROJECT=$GCP_PROJECT
+
+# 2. Hosting must rewrite /jobs/** → broker (not index.html)
+firebase deploy --only hosting --project $GCP_PROJECT
+
+# 3. Enable async responses on broker
+make deploy-auth-broker GCP_PROJECT=$GCP_PROJECT ASYNC_PRESCRIPTION=true
+
+# 4. Smoke
+curl -s https://$GCP_PROJECT.web.app/health | jq .async_prescription   # true
+
+export FIREBASE_ID_TOKEN="$(uv run python scripts/firebase_id_token.py --print-token-only)"
+
+uv run python scripts/test_prescription.py "$RX_IMAGE" \
+  --url https://$GCP_PROJECT.web.app \
+  --token "$FIREBASE_ID_TOKEN" \
+  --timeout 120
 ```
 
-**Pass:** same JSON shape as A1; Cloud Run logs show `Running pipeline via Agent Runtime`.
+**Pass:**
+
+```text
+   Job enqueued: <uuid>
+   Job status: pending
+   Job status: processing
+   Job status: done
+✓  HTTP 200 (async job complete)
+```
+
+Same drug/interaction footer as sync A3. **`eval_scores` in job result stays `null`** — runtime
+judge still writes to BigQuery (Step 3 below).
+
+**Verify GET returns JSON (not HTML):**
+
+```bash
+curl -s -H "Authorization: Bearer $FIREBASE_ID_TOKEN" \
+  "https://$GCP_PROJECT.web.app/jobs/<job_id>" | head -c 120
+# Must start with {"job_id": — not <!DOCTYPE html>
+```
+
+**Debug stuck `pending`:** worker logs (403 → run `grant_pubsub_worker_push.sh`); Firestore
+`jobs` collection; DLQ topic `prescription-jobs-dlq`.
+
+**Poll broker directly** (bypass Hosting while debugging):
+
+```bash
+BROKER_URL=$(gcloud run services describe medication-companion-broker \
+  --project=$GCP_PROJECT --region=us-central1 --format='value(status.url)')
+uv run python scripts/test_prescription.py "$RX_IMAGE" \
+  --url "$BROKER_URL" --token "$FIREBASE_ID_TOKEN" --timeout 120
+```
 
 ---
 
@@ -434,8 +549,9 @@ cd frontend && flutter run -d chrome
 ## C · Full cloud E2E
 
 **Tests:** Hosting static assets, rewrites, Firebase Auth, broker, Runtime, GCS — everything.
+When broker has `ASYNC_PRESCRIPTION=true`, Flutter polls `GET /jobs/{id}` (same as A3-async).
 
-**Deploy:** runbook §2 + §3.
+**Deploy:** runbook §2 + §3 (and §2.1 if async enabled).
 
 ```bash
 make deploy-backend GCP_PROJECT=$GCP_PROJECT
@@ -452,6 +568,11 @@ make deploy-frontend GCP_PROJECT=$GCP_PROJECT
 ---
 
 ## Day 4 eval + observability verification (after code changes)
+
+**Async prescriptions do not change eval workflows.** Agent-quality evals hit **Agent Runtime
+directly** (`agents-cli eval`, `run_vision_eval_trace.py`) or call `run_prescription_pipeline`
+— not the broker HTTP async path. Flip `ASYNC_PRESCRIPTION` on/off without re-running eval
+suites unless you changed agent code.
 
 Three incremental checks — run in order.
 
@@ -577,20 +698,31 @@ use Step 2a instead — `inline_data` / eval-generate vision delivery is unrelia
 
 ### Step 3 · Runtime async judge + span attributes (after redeploy)
 
-Redeploy, then run A2b or A2b-broker. Check Cloud Logging for:
+Redeploy Agent Runtime when **agent code** changed, then run A2b, A2b-broker, **A3**, or
+**A3-async** (worker path also triggers the judge). Check Cloud Logging for:
 
 ```text
 Scheduled async pipeline eval (session=…)
 Pipeline eval complete (session=… safety=… clarity=…)
 ```
 
-Optional BigQuery (when `GOOGLE_CLOUD_PROJECT` + `medication_companion.eval_log` exist):
+Optional BigQuery after **A3-async** smoke (use `session_id` from job `result`):
 
 ```bash
 bq query --use_legacy_sql=false \
-  'SELECT session_id, safety_score, clarity_score, timestamp
-   FROM `medication-companion-dev.medication_companion.eval_log`
-   ORDER BY timestamp DESC LIMIT 5'
+  "SELECT session_id, safety_score, clarity_score, timestamp
+   FROM \`${GCP_PROJECT}.medication_companion.eval_log\`
+   WHERE session_id = 'runtime-...'
+   ORDER BY timestamp DESC"
+```
+
+General recent rows:
+
+```bash
+bq query --use_legacy_sql=false \
+  "SELECT session_id, safety_score, clarity_score, timestamp
+   FROM \`${GCP_PROJECT}.medication_companion.eval_log\`
+   ORDER BY timestamp DESC LIMIT 5"
 ```
 
 **Traces:** Cloud Console → Agent Platform → **Traces** → open a span → attributes include
@@ -603,16 +735,20 @@ bq query --use_legacy_sql=false \
 
 ## Pass / fail checklist (all scenarios)
 
-| Check | A1 | A2 | A2b | A2b-broker | A3 | B1 | B2 | C |
-|-------|:--:|:--:|:---:|:----------:|:--:|:--:|:--:|:--:|
-| `/health` 200 | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | ✓ |
-| GCS upload works | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Pipeline returns drugs | ✓ | partial | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Firebase JWT enforced | — | — | — | — | ✓ | — | — | ✓ |
-| Hosting rewrites | — | — | — | — | ✓ | — | — | ✓ |
-| Flutter UI | — | — | — | — | — | ✓ | ✓ | ✓ |
-| Deployed Runtime revision | — | status | ✓ | ✓ | ✓ | — | ✓ | ✓ |
-| PrescriptionResult JSON | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Check | A1 | A2 | A2b | A2b-broker | A3 | A3-async | B1 | B2 | C |
+|-------|:--:|:--:|:---:|:----------:|:--:|:--------:|:--:|:--:|:--:|
+| `/health` 200 | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| GCS upload works | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Pipeline returns drugs | ✓ | partial | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Firebase JWT enforced | — | — | — | — | ✓ | ✓ | — | — | ✓ |
+| Hosting rewrites | — | — | — | — | ✓ | ✓ | — | — | ✓ |
+| `GET /jobs/**` → JSON | — | — | — | — | — | ✓ | — | — | ✓* |
+| Pub/Sub + worker | — | — | — | — | — | ✓ | — | — | ✓* |
+| Flutter UI | — | — | — | — | — | — | ✓ | ✓ | ✓ |
+| Deployed Runtime revision | — | status | ✓ | ✓ | ✓ | ✓ | — | ✓ | ✓ |
+| PrescriptionResult JSON | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+\*When `ASYNC_PRESCRIPTION=true` on broker and Flutter built with async polling support.
 
 ---
 
@@ -631,3 +767,7 @@ See [runbook §8](deployment_runbook.md#8-troubleshooting-one-liners) and
 | CORS error from Flutter localhost | B → Hosting URL | Use B2 (local broker) instead |
 | Empty / timeout pipeline | A1, B1 | ADC: `gcloud auth application-default login` |
 | 500 on `/prescription` | A3, B2, C | `make deploy-auth-broker` (refresh Runtime ID) |
+| `Job enqueued` then GET returns HTML | A3-async | `firebase deploy --only hosting` (`/jobs/**` rewrite in `firebase.json`) |
+| Job stuck `pending` | A3-async | `./scripts/grant_pubsub_worker_push.sh`; worker logs; `GOOGLE_CLOUD_PROJECT` on broker |
+| `GOOGLE_CLOUD_PROJECT required for pubsub` | A3-async | Redeploy broker or set env; see runbook §8 |
+| JSON parse error polling jobs | A3-async | Same as HTML row — Hosting rewrite or use broker Cloud Run URL |
