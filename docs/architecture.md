@@ -2,9 +2,14 @@
 
 ## System overview
 
+![Medication Companion — system architecture](architecture.png)
+
 Medication Companion is a **multi-agent pipeline** built with Google ADK + Gemini.
 Each agent has a single, bounded responsibility. Agents communicate via structured
 Pydantic models through ADK session state — never plain dicts, never free text between agents.
+
+The diagram above shows the production topology: Flutter PWA → auth broker → sync or
+async paths through Vertex AI Agent Runtime, plus the backing datastores and GCP services.
 
 ---
 
@@ -40,25 +45,29 @@ Agent 4: Patient Education
   • Generates plain-language explanation calibrated to severity
   • Builds drug cards, interaction cards, doctor questions
   • Mandatory disclaimer injected
-  • Triggers LLM-as-Judge async (non-blocking)
-  • Triggers memory write (resolved drugs → VertexAiMemoryBankService)
     │
     ▼
-[Output Guardrail] ──(sanitise)──► strips diagnostic language, injects disclaimer
-    │
-    ▼
-  A2A call to Agent 5
-    │
-    ▼
-Agent 5: Localisation + Audio (separate Cloud Run service)
+Agent 5: Localisation + Audio (in-process, same Agent Runtime)
   • Translates to patient language (hi-IN, ta-IN, te-IN, bn-IN, en-IN)
   • Calls GCP Text-to-Speech via FunctionTool
   • Uploads MP3 to Cloud Storage
   • Returns signed URL (24h expiry)
     │
     ▼
+[after_agent_callback]
+  • Output policy gate (strips diagnostic language, enforces disclaimer)
+  • Persists visit to VertexAiMemoryBankService
+  • Fires LLM-as-Judge asynchronously (non-blocking)
+    │
+    ▼
 JSON response to Flutter PWA
 ```
+
+> **Note — A2A is a future extension.** Agent 5 currently runs **in-process** inside
+> the same `SequentialAgent` on Vertex AI Agent Runtime (`deployment_metadata.json`:
+> `is_a2a: false`). An earlier prototype deployed Agent 5 as a separate Cloud Run
+> service over A2A; that code is preserved under `deploy/legacy_cloud_run/` and may
+> be revived if independent scaling of localisation/TTS becomes a need.
 
 ---
 
@@ -124,7 +133,7 @@ avoid LLM calls for the resolution step.
 
 ## Observability
 
-- **Cloud Trace**: each agent is an OpenTelemetry named span. Full waterfall (Agent 1 → Agent 5 via A2A) visible in Cloud Trace.
+- **Cloud Trace**: each agent is an OpenTelemetry named span. Full waterfall (Agent 1 → Agent 5) is visible as a single Agent Runtime trace.
 - **Structured logging**: `google.cloud.logging` JSON format on both services. Guardrail rejections, memory writes, and judge scores are all logged with session_id.
 - **BigQuery audit**: `medication_companion.eval_log` captures LLM-as-Judge scores per run. `medication_companion.pipeline_audit` captures latency and severity per run.
 - **Health endpoints**: `GET /health` on both Cloud Run services.
@@ -133,13 +142,12 @@ avoid LLM calls for the resolution step.
 
 ## Security model
 
-- Both Cloud Run services: `--no-allow-unauthenticated`
-- Firebase Auth JWT validated on every request at FastAPI middleware layer
-- `patient_id` extracted from verified JWT — never from client request body
-- Input guardrail: runs before Agent 1 on every request
-- Output guardrail: runs after Agent 4 before response
-- GCP IAM: service account with least-privilege roles (see `scripts/setup_gcp.sh`)
-- Secrets in Secret Manager (not environment variables or images)
+- Auth broker Cloud Run service: public, but every request must carry a valid Firebase JWT (verified at the FastAPI middleware layer).
+- Vertex AI Agent Runtime and the Pub/Sub Prescription Worker are **private** — reached only via service-account credentials from the auth broker.
+- `patient_id` is always derived from the verified Firebase UID — never from the client request body.
+- Policy gates: structural image-intake checks before Agent 1; semantic output checks in the `after_agent_callback` (see `backend/policy/policy_server.py`).
+- GCP IAM: each service uses a least-privilege service account (see `scripts/setup_gcp.sh`).
+- Secrets in Secret Manager — never in environment variables or container images.
 
 ---
 
@@ -147,8 +155,8 @@ avoid LLM calls for the resolution step.
 
 | Day | Concept | Architecture component |
 |-----|---------|----------------------|
-| 1 | Agents + Vibe Coding | Multi-agent pipeline; Gate 1 autonomous rejection; `.cursor/rules/` spec |
-| 2 | Tools + Interoperability | `FunctionTool`s (RxNav, combo-splitter, TTS); Agent 5 as A2A service with Agent Card |
+| 1 | Agents + Vibe Coding | Multi-agent pipeline; Gate 1 autonomous rejection; spec-driven generation via `AGENTS.md` + `specs/` |
+| 2 | Tools + Interoperability | `FunctionTool`s (`drug_lookup`, `combo_splitter`, `check_prescription_interactions`, `text_to_speech`); A2A deployment of Agent 5 evaluated and archived under `deploy/legacy_cloud_run/` |
 | 3 | Context Engineering (Memory) | `VertexAiSessionService`; `VertexAiMemoryBankService`; cross-visit interaction checking |
-| 4 | Agent Quality | Input/output guardrail callbacks; LLM-as-Judge async scorer; BigQuery eval log |
-| 5 | Spec-Driven Production | `.cursor/rules/medication-companion.mdc`; two Cloud Run services; Cloud Trace; `deploy.sh` |
+| 4 | Agent Quality | Hybrid policy server on ADK callbacks; LLM-as-Judge async scorer; BigQuery `eval_log` |
+| 5 | Spec-Driven Production | `specs/` Gherkin + YAML schemas; Vertex AI Agent Runtime + auth broker + Pub/Sub worker on Cloud Run; Cloud Trace; CI in `.github/workflows/` |

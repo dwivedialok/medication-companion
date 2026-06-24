@@ -2,16 +2,26 @@
 """
 scripts/build_drug_index.py
 
-Build data/drugs.db from the Kaggle datasets and the curated CSV.
+Build data/drugs.db from curated CSVs (committed) and Kaggle CSVs (download separately).
 
 Inputs (data/):
-  - india_brands.csv                                (curated, source='curated')
-  - Extensive_A_Z_medicines_dataset_of_India.csv    (source='extensive_az')
-  - all_medicine databased.csv                      (source='all_medicine')
-  - medicine_data.csv                               (source='medicine_data',
-                                                     primary interaction source)
-  - curated_interactions.csv                        (source='curated', hand-maintained;
-                                                     overrides medicine_data on collision)
+
+  Curated — committed to the repo, hand-maintained:
+    - india_brands.csv
+        Brand → generic mappings (source='curated', highest lookup priority)
+    - curated_interactions.csv
+        Interaction overrides (source='curated'; wins over medicine_data on collision)
+
+  Kaggle — not committed; download and place in data/ (see .gitignore):
+    - medicine_data.csv
+        Primary drug-interaction source (source='medicine_data')
+        https://kaggle.com/datasets/mohneesh7/indian-medicine-data
+    - Extensive_A_Z_medicines_dataset_of_India.csv
+        ~250k Indian brand names (source='extensive_az')
+        https://kaggle.com/datasets/riturajsingh2004/extensive-a-z-medicines-dataset-of-india
+    - all_medicine databased.csv
+        Fallback brand metadata (source='all_medicine')
+        https://kaggle.com/datasets/ankushpoddar/all-india-drug-bank-database
 
 Output:
   - data/drugs.db    SQLite with tables: brands, brand_components, generics,

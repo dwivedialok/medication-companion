@@ -19,6 +19,7 @@
 - [Architecture](#architecture)
 - [Repository layout](#repository-layout)
 - [Quick start](#quick-start-local-development)
+- [Drug data sources](#drug-data-sources)
 - [Deployment](#deployment)
 - [Specs and instruction hierarchy](#specs-and-instruction-hierarchy)
 - [Key design decisions](#key-design-decisions)
@@ -47,38 +48,11 @@ A patient photographs their prescription. The system runs a five-agent pipeline:
 
 ## Architecture
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                  Flutter PWA (Firebase Hosting)                         │
-│   Login (Firebase Auth) → Upload Prescription → Result + Audio Player  │
-└──────────────┬───────────────────────────────────┬────────────────────┘
-               │ 1. POST /upload-url               │ 3. POST /prescription
-               │ 2. PUT image → signed GCS URL     │    {gcs_uri, lang}
-               ▼                                   ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│           Cloud Run: Auth Broker  (public, Firebase JWT verified)      │
-│   • Issues GCS signed upload URLs                                      │
-│   • Derives patient_id from verified Firebase UID                      │
-│   • Proxies to Agent Runtime with service-account credentials          │
-│   • Async path: enqueues Pub/Sub job → returns job_id                  │
-└──────────────┬───────────────────────────────────┬────────────────────┘
-               │ sync (small / smoke)              │ async (production)
-               ▼                                   ▼
-┌──────────────────────────────────┐  ┌─────────────────────────────────┐
-│  Vertex AI Agent Runtime         │  │  Cloud Run: Prescription Worker │
-│  ADK SequentialAgent A1→A5       │  │  Pub/Sub push → Agent Runtime   │
-│  • LlmAgents (Gemini 3.1 Flash)  │  │  • Writes result to job store   │
-│  • FunctionTools (drug lookup,   │  └─────────────────────────────────┘
-│    interaction lookup, TTS)      │
-│  • VertexAiSessionService        │     Datastores
-│  • VertexAiMemoryBankService     │     • GCS (images, MP3 audio)
-└──────────────────────────────────┘     • SQLite drugs.db (committed)
-                                         • BigQuery (LLM-as-Judge scores)
-```
+![Medication Companion — system architecture](docs/architecture.png)
 
 **GCP services used:** Cloud Run · Vertex AI Agent Engine · Vertex AI Memory Bank · Cloud Storage · Cloud Text-to-Speech · Pub/Sub · BigQuery · Firebase Auth · Firebase Hosting · Cloud Trace · Cloud Logging.
 
-Deeper architecture notes live in [`docs/architecture.md`](docs/architecture.md) and the operational runbook in [`docs/deployment_runbook.md`](docs/deployment_runbook.md).
+Agent-level pipeline flow, session state, memory, and security details are in [`docs/architecture.md`](docs/architecture.md). Operational deploy steps are in [`docs/deployment_runbook.md`](docs/deployment_runbook.md).
 
 ---
 
@@ -125,7 +99,9 @@ medication-companion/
 │   └── schemas/                      # Flat YAML schemas
 ├── data/
 │   ├── india_brands.csv              # Curated brand → generic (committed)
-│   └── drugs.db                      # Built SQLite index (committed, ~60 MB)
+│   ├── curated_interactions.csv      # Curated interaction overrides (committed)
+│   ├── drugs.db                      # Built SQLite index (committed, ~60 MB)
+│   └── *.csv                         # Kaggle sources — download separately (see below)
 ├── scripts/                          # Build, setup, ops helpers
 │   ├── build_drug_index.py           # Rebuild drugs.db from sources
 │   ├── setup_gcp.sh                  # One-time GCP project setup
@@ -190,14 +166,41 @@ The notebook runs all five agents end-to-end with no GCP credentials required.
 
 ### 4. Build the drug index (optional)
 
-Only needed if you change a source CSV. The committed `data/drugs.db` is
-sufficient for development.
+Only needed if you change a source CSV or want to rebuild from the Kaggle
+datasets. The committed `data/drugs.db` is sufficient for development.
 
 ```bash
 python scripts/build_drug_index.py
 ```
 
-See [`AGENTS.md`](AGENTS.md#drug-data-sources) for the lookup-tier contract.
+See [Drug data sources](#drug-data-sources) for download links and
+[`AGENTS.md`](AGENTS.md#drug-data-sources) for the lookup-tier contract.
+
+---
+
+## Drug data sources
+
+`data/drugs.db` is built by [`scripts/build_drug_index.py`](scripts/build_drug_index.py)
+from curated CSVs (committed) plus three Kaggle datasets (not committed).
+Drop the Kaggle CSVs into `data/` and run the build script to regenerate the index.
+
+### Curated (committed)
+
+| File | Purpose |
+|------|---------|
+| [`data/india_brands.csv`](data/india_brands.csv) | Hand-maintained brand → generic mappings (~300 rows; highest lookup priority) |
+| [`data/curated_interactions.csv`](data/curated_interactions.csv) | Hand-maintained interaction overrides (wins over Kaggle data on collision) |
+
+### Kaggle (download required)
+
+| Save as | Dataset | Role |
+|---------|---------|------|
+| `medicine_data.csv` | [Indian Medicine Data](https://kaggle.com/datasets/mohneesh7/indian-medicine-data) | Primary drug-interaction source |
+| `Extensive_A_Z_medicines_dataset_of_India.csv` | [Extensive A–Z Medicines Dataset of India](https://kaggle.com/datasets/riturajsingh2004/extensive-a-z-medicines-dataset-of-india) | ~250k Indian brand names |
+| `all_medicine databased.csv` | [All India Drug Bank Database](https://kaggle.com/datasets/ankushpoddar/all-india-drug-bank-database) | Fallback brand metadata |
+
+The committed `data/drugs.db` (~60 MB) is enough for local development without
+downloading the Kaggle CSVs.
 
 ---
 
@@ -313,7 +316,7 @@ It builds on:
 - [Google Agent Development Kit (ADK)](https://google.github.io/adk-docs/)
 - [Google Gemini](https://ai.google.dev/) (3.1 Flash / Flash Lite)
 - [RxNav / RxNorm](https://lhncbc.nlm.nih.gov/RxNav/) for fallback drug normalisation
-- Public Indian medicine datasets on Kaggle (see [`AGENTS.md`](AGENTS.md#drug-data-sources))
+- Indian medicine datasets on Kaggle — [Indian Medicine Data](https://kaggle.com/datasets/mohneesh7/indian-medicine-data), [Extensive A–Z Medicines Dataset of India](https://kaggle.com/datasets/riturajsingh2004/extensive-a-z-medicines-dataset-of-india), [All India Drug Bank Database](https://kaggle.com/datasets/ankushpoddar/all-india-drug-bank-database) (see [Drug data sources](#drug-data-sources))
 
 ---
 
