@@ -91,6 +91,26 @@
   "severityNone": "No concerns identified",
   "couldNotResolve": "Could not be resolved",
   "crossVisitDetected": "Detected from your medication history",
+  "tagNew": "NEW",
+  "tagExisting": "EXISTING",
+  "tagUnresolved": "UNRESOLVED",
+  "sevChipHigh": "HIGH",
+  "sevChipModerate": "MODERATE",
+  "sevChipLow": "LOW",
+  "sevChipInfo": "INFO",
+  "sevChipNone": "NONE",
+  "sevWordHigh": "high",
+  "sevWordModerate": "moderate",
+  "sevWordLow": "low",
+  "mechanismDataset": "Dataset records a {severityWord} interaction between {a} and {b}. Please discuss this with your doctor or pharmacist.",
+  "@mechanismDataset": {
+    "placeholders": {
+      "severityWord": { "type": "String" },
+      "a": { "type": "String" },
+      "b": { "type": "String" }
+    }
+  },
+  "shownInEnglishNote": "(shown in English)",
   "langEnglish": "English",
   "langHindi": "Hindi",
   "langTamil": "Tamil",

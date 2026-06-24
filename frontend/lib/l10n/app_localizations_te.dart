@@ -212,6 +212,47 @@ class AppLocalizationsTe extends AppLocalizations {
   String get crossVisitDetected => 'మీ మందుల చరిత్ర నుండి గుర్తించబడింది';
 
   @override
+  String get tagNew => 'కొత్త';
+
+  @override
+  String get tagExisting => 'ఇప్పటికే';
+
+  @override
+  String get tagUnresolved => 'దొరకలేదు';
+
+  @override
+  String get sevChipHigh => 'ఎక్కువ';
+
+  @override
+  String get sevChipModerate => 'మధ్యస్థ';
+
+  @override
+  String get sevChipLow => 'తక్కువ';
+
+  @override
+  String get sevChipInfo => 'సమాచారం';
+
+  @override
+  String get sevChipNone => 'సరే';
+
+  @override
+  String get sevWordHigh => 'ఎక్కువ';
+
+  @override
+  String get sevWordModerate => 'మధ్యస్థ';
+
+  @override
+  String get sevWordLow => 'తక్కువ';
+
+  @override
+  String mechanismDataset(String severityWord, String a, String b) {
+    return '$a మరియు $b కలిపి తీసుకుంటే $severityWord ప్రభావం ఉండవచ్చు. మీ డాక్టర్ లేదా ఫార్మసిస్ట్‌తో మాట్లాడండి.';
+  }
+
+  @override
+  String get shownInEnglishNote => '(ఆంగ్లంలో చూపబడింది)';
+
+  @override
   String get langEnglish => 'ఆంగ్లం';
 
   @override

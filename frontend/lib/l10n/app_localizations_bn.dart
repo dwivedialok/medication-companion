@@ -211,6 +211,47 @@ class AppLocalizationsBn extends AppLocalizations {
   String get crossVisitDetected => 'আপনার ওষুধের ইতিহাস থেকে শনাক্ত';
 
   @override
+  String get tagNew => 'নতুন';
+
+  @override
+  String get tagExisting => 'আগের';
+
+  @override
+  String get tagUnresolved => 'পাওয়া যায়নি';
+
+  @override
+  String get sevChipHigh => 'বেশি';
+
+  @override
+  String get sevChipModerate => 'মাঝারি';
+
+  @override
+  String get sevChipLow => 'কম';
+
+  @override
+  String get sevChipInfo => 'তথ্য';
+
+  @override
+  String get sevChipNone => 'ঠিক আছে';
+
+  @override
+  String get sevWordHigh => 'বেশি';
+
+  @override
+  String get sevWordModerate => 'মাঝারি';
+
+  @override
+  String get sevWordLow => 'কম';
+
+  @override
+  String mechanismDataset(String severityWord, String a, String b) {
+    return '$a এবং $b একসঙ্গে নিলে $severityWord প্রভাব হতে পারে। আপনার ডাক্তার বা ফার্মাসিস্টের সাথে কথা বলুন।';
+  }
+
+  @override
+  String get shownInEnglishNote => '(ইংরেজিতে দেখানো হচ্ছে)';
+
+  @override
   String get langEnglish => 'ইংরেজি';
 
   @override

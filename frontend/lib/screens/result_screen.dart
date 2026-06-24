@@ -5,6 +5,15 @@ import 'package:go_router/go_router.dart';
 import '../l10n/app_localizations.dart';
 import '../models/prescription_result.dart';
 
+String severityChipLabel(AppLocalizations l10n, String severity) =>
+    switch (severity) {
+      'HIGH' => l10n.sevChipHigh,
+      'MODERATE' => l10n.sevChipModerate,
+      'LOW' => l10n.sevChipLow,
+      'INFO' => l10n.sevChipInfo,
+      _ => l10n.sevChipNone,
+    };
+
 class ResultScreen extends StatefulWidget {
   final PrescriptionResult result;
 
@@ -135,6 +144,17 @@ class _ResultScreenState extends State<ResultScreen> {
 
               if (_r.doctorQuestions.isNotEmpty) ...[
                 _SectionHeader(l10n.doctorQuestions),
+                if (Localizations.localeOf(context).languageCode != 'en')
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      l10n.shownInEnglishNote,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -179,7 +199,11 @@ class _ResultScreenState extends State<ResultScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _r.disclaimer,
+                        Localizations.localeOf(context).languageCode == 'en'
+                            ? (_r.disclaimer.isNotEmpty
+                                ? _r.disclaimer
+                                : l10n.disclaimerHome)
+                            : l10n.disclaimerHome,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -265,6 +289,7 @@ class _SeverityBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final (bg, fg, icon, label) = _attrs(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -281,7 +306,7 @@ class _SeverityBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  severity,
+                  severityChipLabel(l10n, severity),
                   style: TextStyle(
                     color: fg,
                     fontWeight: FontWeight.bold,
@@ -301,6 +326,13 @@ class _SeverityBanner extends StatelessWidget {
 class _DrugCard extends StatelessWidget {
   final ResolvedDrug drug;
   const _DrugCard({required this.drug});
+
+  String _tagLabel(AppLocalizations l10n) => switch (drug.tag) {
+        'NEW' => l10n.tagNew,
+        'EXISTING' => l10n.tagExisting,
+        'UNRESOLVED' => l10n.tagUnresolved,
+        _ => drug.tag,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -334,7 +366,7 @@ class _DrugCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
-            drug.tag,
+            _tagLabel(l10n),
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
@@ -377,6 +409,38 @@ class _InteractionCard extends StatelessWidget {
     return '$generic ($brand)';
   }
 
+  String _chipLabel(AppLocalizations l10n) =>
+      severityChipLabel(l10n, interaction.severity);
+
+  String? _severityWord(AppLocalizations l10n, String sev) => switch (sev) {
+        'high' || 'HIGH' => l10n.sevWordHigh,
+        'moderate' || 'MODERATE' => l10n.sevWordModerate,
+        'low' || 'LOW' => l10n.sevWordLow,
+        _ => null,
+      };
+
+  /// Matches the deterministic backend template from
+  /// `backend/tools/safety_check.py::_mechanism_text`:
+  ///   "Dataset records a <severity> interaction between <a> and <b>.
+  ///    Please discuss this with your doctor or pharmacist."
+  static final RegExp _datasetMechanismRe = RegExp(
+    r'^\s*Dataset records a (high|moderate|low) interaction between (.+?) and (.+?)\.\s*Please discuss this with your doctor or pharmacist\.?\s*$',
+    caseSensitive: false,
+  );
+
+  String _localizedMechanism(BuildContext context, AppLocalizations l10n) {
+    final raw = interaction.mechanism;
+    if (Localizations.localeOf(context).languageCode == 'en') return raw;
+
+    final match = _datasetMechanismRe.firstMatch(raw);
+    if (match == null) return raw;
+
+    final word = _severityWord(l10n, match.group(1) ?? '') ?? '';
+    final a = _label(match.group(2) ?? '');
+    final b = _label(match.group(3) ?? '');
+    return l10n.mechanismDataset(word, a, b);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -408,7 +472,7 @@ class _InteractionCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    interaction.severity,
+                    _chipLabel(l10n),
                     style: TextStyle(
                       color: color,
                       fontWeight: FontWeight.bold,
@@ -420,7 +484,7 @@ class _InteractionCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              interaction.mechanism,
+              _localizedMechanism(context, l10n),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             if (interaction.source == 'cross_visit') ...[

@@ -211,6 +211,47 @@ class AppLocalizationsEn extends AppLocalizations {
   String get crossVisitDetected => 'Detected from your medication history';
 
   @override
+  String get tagNew => 'NEW';
+
+  @override
+  String get tagExisting => 'EXISTING';
+
+  @override
+  String get tagUnresolved => 'UNRESOLVED';
+
+  @override
+  String get sevChipHigh => 'HIGH';
+
+  @override
+  String get sevChipModerate => 'MODERATE';
+
+  @override
+  String get sevChipLow => 'LOW';
+
+  @override
+  String get sevChipInfo => 'INFO';
+
+  @override
+  String get sevChipNone => 'NONE';
+
+  @override
+  String get sevWordHigh => 'high';
+
+  @override
+  String get sevWordModerate => 'moderate';
+
+  @override
+  String get sevWordLow => 'low';
+
+  @override
+  String mechanismDataset(String severityWord, String a, String b) {
+    return 'Dataset records a $severityWord interaction between $a and $b. Please discuss this with your doctor or pharmacist.';
+  }
+
+  @override
+  String get shownInEnglishNote => '(shown in English)';
+
+  @override
   String get langEnglish => 'English';
 
   @override

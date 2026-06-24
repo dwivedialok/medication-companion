@@ -131,7 +131,7 @@ class AppLocalizationsHi extends AppLocalizations {
   String get retakePhoto => 'नई फोटो लें';
 
   @override
-  String get stepReading => 'दवाई पर्चा पढ़ा जा रही है...';
+  String get stepReading => 'दवाई पर्चा पढ़ा जा रहा है...';
 
   @override
   String get stepChecking => 'दवाओं की आपस में जाँच हो रही है...';
@@ -208,6 +208,47 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get crossVisitDetected => 'आपकी पुरानी दवाओं से मिला';
+
+  @override
+  String get tagNew => 'नई दवा';
+
+  @override
+  String get tagExisting => 'चल रही दवा';
+
+  @override
+  String get tagUnresolved => 'पहचान नहीं हुई';
+
+  @override
+  String get sevChipHigh => 'गंभीर';
+
+  @override
+  String get sevChipModerate => 'मध्यम';
+
+  @override
+  String get sevChipLow => 'हल्का';
+
+  @override
+  String get sevChipInfo => 'जानकारी';
+
+  @override
+  String get sevChipNone => 'ठीक';
+
+  @override
+  String get sevWordHigh => 'गंभीर';
+
+  @override
+  String get sevWordModerate => 'मध्यम';
+
+  @override
+  String get sevWordLow => 'हल्का';
+
+  @override
+  String mechanismDataset(String severityWord, String a, String b) {
+    return '$a और $b को एक साथ लेने पर $severityWord दुष्प्रभाव (साइड-इफेक्ट) हो सकते हैं। कृपया अपने डॉक्टर या केमिस्ट से सलाह लें।';
+  }
+
+  @override
+  String get shownInEnglishNote => '(अंग्रेज़ी में दिखाया गया है)';
 
   @override
   String get langEnglish => 'English';

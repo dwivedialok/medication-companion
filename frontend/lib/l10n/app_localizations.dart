@@ -482,6 +482,84 @@ abstract class AppLocalizations {
   /// **'Detected from your medication history'**
   String get crossVisitDetected;
 
+  /// No description provided for @tagNew.
+  ///
+  /// In en, this message translates to:
+  /// **'NEW'**
+  String get tagNew;
+
+  /// No description provided for @tagExisting.
+  ///
+  /// In en, this message translates to:
+  /// **'EXISTING'**
+  String get tagExisting;
+
+  /// No description provided for @tagUnresolved.
+  ///
+  /// In en, this message translates to:
+  /// **'UNRESOLVED'**
+  String get tagUnresolved;
+
+  /// No description provided for @sevChipHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'HIGH'**
+  String get sevChipHigh;
+
+  /// No description provided for @sevChipModerate.
+  ///
+  /// In en, this message translates to:
+  /// **'MODERATE'**
+  String get sevChipModerate;
+
+  /// No description provided for @sevChipLow.
+  ///
+  /// In en, this message translates to:
+  /// **'LOW'**
+  String get sevChipLow;
+
+  /// No description provided for @sevChipInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'INFO'**
+  String get sevChipInfo;
+
+  /// No description provided for @sevChipNone.
+  ///
+  /// In en, this message translates to:
+  /// **'NONE'**
+  String get sevChipNone;
+
+  /// No description provided for @sevWordHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'high'**
+  String get sevWordHigh;
+
+  /// No description provided for @sevWordModerate.
+  ///
+  /// In en, this message translates to:
+  /// **'moderate'**
+  String get sevWordModerate;
+
+  /// No description provided for @sevWordLow.
+  ///
+  /// In en, this message translates to:
+  /// **'low'**
+  String get sevWordLow;
+
+  /// No description provided for @mechanismDataset.
+  ///
+  /// In en, this message translates to:
+  /// **'Dataset records a {severityWord} interaction between {a} and {b}. Please discuss this with your doctor or pharmacist.'**
+  String mechanismDataset(String severityWord, String a, String b);
+
+  /// No description provided for @shownInEnglishNote.
+  ///
+  /// In en, this message translates to:
+  /// **'(shown in English)'**
+  String get shownInEnglishNote;
+
   /// No description provided for @langEnglish.
   ///
   /// In en, this message translates to:

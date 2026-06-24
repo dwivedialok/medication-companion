@@ -217,6 +217,47 @@ class AppLocalizationsTa extends AppLocalizations {
       'உங்கள் மருந்து வரலாற்றிலிருந்து கண்டறியப்பட்டது';
 
   @override
+  String get tagNew => 'புதிய';
+
+  @override
+  String get tagExisting => 'ஏற்கனவே';
+
+  @override
+  String get tagUnresolved => 'கிடைக்கவில்லை';
+
+  @override
+  String get sevChipHigh => 'அதிக';
+
+  @override
+  String get sevChipModerate => 'மிதம்';
+
+  @override
+  String get sevChipLow => 'குறைவு';
+
+  @override
+  String get sevChipInfo => 'தகவல்';
+
+  @override
+  String get sevChipNone => 'சரி';
+
+  @override
+  String get sevWordHigh => 'அதிக';
+
+  @override
+  String get sevWordModerate => 'மிதமான';
+
+  @override
+  String get sevWordLow => 'குறைந்த';
+
+  @override
+  String mechanismDataset(String severityWord, String a, String b) {
+    return '$a மற்றும் $b ஒன்றாக எடுத்துக்கொண்டால் $severityWord விளைவு ஏற்படலாம். உங்கள் டாக்டர் அல்லது மருந்தாளரிடம் பேசவும்.';
+  }
+
+  @override
+  String get shownInEnglishNote => '(ஆங்கிலத்தில் காட்டப்படுகிறது)';
+
+  @override
   String get langEnglish => 'ஆங்கிலம்';
 
   @override
