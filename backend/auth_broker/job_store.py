@@ -40,6 +40,10 @@ class JobStore(Protocol):
 
     async def set_failed(self, job_id: str, error: JobError) -> None: ...
 
+    async def list_jobs(
+        self, patient_id: str, limit: int = 50
+    ) -> list[PrescriptionJobStatus]: ...
+
 
 class MemoryJobStore:
     """In-process job store for unit tests and local dev without Firestore."""
@@ -102,6 +106,13 @@ class MemoryJobStore:
         doc["error"] = error.model_dump()
         doc["result"] = None
         doc["updated_at"] = _utc_now_iso()
+
+    async def list_jobs(
+        self, patient_id: str, limit: int = 50
+    ) -> list[PrescriptionJobStatus]:
+        docs = [d for d in self._jobs.values() if d.get("patient_id") == patient_id]
+        docs.sort(key=lambda d: d.get("created_at", ""), reverse=True)
+        return [PrescriptionJobStatus(**d) for d in docs[:limit]]
 
 
 class FirestoreJobStore:
@@ -185,6 +196,23 @@ class FirestoreJobStore:
             )
 
         await asyncio.to_thread(_update)
+
+    async def list_jobs(
+        self, patient_id: str, limit: int = 50
+    ) -> list[PrescriptionJobStatus]:
+        from google.cloud import firestore
+
+        def _query() -> list[dict]:
+            query = (
+                self._client.collection(JOBS_COLLECTION)
+                .where("patient_id", "==", patient_id)
+                .order_by("created_at", direction=firestore.Query.DESCENDING)
+                .limit(limit)
+            )
+            return [snap.to_dict() for snap in query.stream()]
+
+        docs = await asyncio.to_thread(_query)
+        return [PrescriptionJobStatus(**d) for d in docs if d is not None]
 
 
 _memory_store: MemoryJobStore | None = None

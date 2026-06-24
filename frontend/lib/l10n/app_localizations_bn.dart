@@ -265,4 +265,36 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get langBengali => 'বাংলা';
+
+  @override
+  String get pastPrescriptionsButton => 'পূর্ববর্তী প্রেসক্রিপশন';
+
+  @override
+  String get historyTitle => 'পূর্ববর্তী প্রেসক্রিপশন';
+
+  @override
+  String get historyEmpty =>
+      'এখনও কোনো পূর্ববর্তী প্রেসক্রিপশন নেই। একটি বিশ্লেষণ করে এখানে দেখুন।';
+
+  @override
+  String get historyLoadError =>
+      'আপনার পূর্ববর্তী প্রেসক্রিপশন লোড করা যায়নি। আবার চেষ্টা করতে নিচে টানুন।';
+
+  @override
+  String get historyProcessing => 'বিশ্লেষণ চলছে...';
+
+  @override
+  String get historyFailed => 'বিশ্লেষণ ব্যর্থ হয়েছে';
+
+  @override
+  String get historyImageUnavailable => 'ছবি উপলব্ধ নয়';
+
+  @override
+  String get prescriptionImageLabel => 'মূল প্রেসক্রিপশন';
+
+  @override
+  String get openAnalysisInProgress => 'চলমান বিশ্লেষণ খুলুন';
+
+  @override
+  String get analysisNotReady => 'আপনার বিশ্লেষণ এখনও প্রস্তুত হচ্ছে।';
 }

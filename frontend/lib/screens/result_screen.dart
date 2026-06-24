@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/prescription_result.dart';
+import '../widgets/prescription_thumbnail.dart';
 
 String severityChipLabel(AppLocalizations l10n, String severity) =>
     switch (severity) {
@@ -17,7 +18,10 @@ String severityChipLabel(AppLocalizations l10n, String severity) =>
 class ResultScreen extends StatefulWidget {
   final PrescriptionResult result;
 
-  const ResultScreen({super.key, required this.result});
+  /// Set when opened from History so we can fetch + render the original image.
+  final String? jobId;
+
+  const ResultScreen({super.key, required this.result, this.jobId});
 
   @override
   State<ResultScreen> createState() => _ResultScreenState();
@@ -78,6 +82,21 @@ class _ResultScreenState extends State<ResultScreen> {
             children: [
               _SeverityBanner(severity: _r.overallSeverity),
               const SizedBox(height: 16),
+
+              if (widget.jobId != null) ...[
+                _SectionHeader(l10n.prescriptionImageLabel),
+                Card(
+                  clipBehavior: Clip.antiAlias,
+                  child: AspectRatio(
+                    aspectRatio: 4 / 3,
+                    child: PrescriptionThumbnail(
+                      jobId: widget.jobId!,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               if (_r.resolvedDrugs.isNotEmpty) ...[
                 _SectionHeader(l10n.medicationsFound(_r.resolvedDrugs.length)),

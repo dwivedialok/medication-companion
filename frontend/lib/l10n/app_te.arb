@@ -80,5 +80,15 @@
   "langHindi": "హిందీ",
   "langTamil": "తమిళం",
   "langTelugu": "తెలుగు",
-  "langBengali": "బెంగాలీ"
+  "langBengali": "బెంగాలీ",
+  "pastPrescriptionsButton": "గత ప్రిస్క్రిప్షన్‌లు",
+  "historyTitle": "గత ప్రిస్క్రిప్షన్‌లు",
+  "historyEmpty": "ఇంకా గత ప్రిస్క్రిప్షన్‌లు లేవు. ఒకదాన్ని విశ్లేషించి ఇక్కడ చూడండి.",
+  "historyLoadError": "మీ గత ప్రిస్క్రిప్షన్‌లను లోడ్ చేయలేకపోయాము. మళ్లీ ప్రయత్నించడానికి కిందికి లాగండి.",
+  "historyProcessing": "విశ్లేషిస్తోంది...",
+  "historyFailed": "విశ్లేషణ విఫలమైంది",
+  "historyImageUnavailable": "చిత్రం అందుబాటులో లేదు",
+  "prescriptionImageLabel": "అసలు ప్రిస్క్రిప్షన్",
+  "openAnalysisInProgress": "జరుగుతున్న విశ్లేషణను తెరవండి",
+  "analysisNotReady": "మీ విశ్లేషణ ఇంకా సిద్ధమవుతోంది."
 }

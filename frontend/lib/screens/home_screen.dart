@@ -131,6 +131,15 @@ class HomeScreen extends StatelessWidget {
                   textStyle: const TextStyle(fontSize: 16),
                 ),
               ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => context.go('/history'),
+                icon: const Icon(Icons.history),
+                label: Text(l10n.pastPrescriptionsButton),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
               const SizedBox(height: 16),
             ],
           ),

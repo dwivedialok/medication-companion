@@ -1,4 +1,7 @@
 {
+  "firestore": {
+    "indexes": "firestore.indexes.json"
+  },
   "hosting": {
     "public": "frontend/build/web",
     "ignore": [
@@ -37,6 +40,20 @@
       },
       {
         "source": "/jobs/**",
+        "run": {
+          "serviceId": "medication-companion-broker",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/prescriptions/**",
+        "run": {
+          "serviceId": "medication-companion-broker",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/prescriptions",
         "run": {
           "serviceId": "medication-companion-broker",
           "region": "us-central1"

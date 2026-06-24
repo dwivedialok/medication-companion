@@ -264,4 +264,36 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get langBengali => 'বাংলা';
+
+  @override
+  String get pastPrescriptionsButton => 'पुरानी जाँच';
+
+  @override
+  String get historyTitle => 'पुरानी जाँच';
+
+  @override
+  String get historyEmpty =>
+      'अभी तक कोई पुरानी जाँच नहीं है। नई दवाई पर्चे की जाँच करें।';
+
+  @override
+  String get historyLoadError =>
+      'पुरानी जाँच लोड नहीं हो पाई। नीचे खींचकर फिर कोशिश करें।';
+
+  @override
+  String get historyProcessing => 'जाँच चल रही है...';
+
+  @override
+  String get historyFailed => 'जाँच पूरी नहीं हो पाई';
+
+  @override
+  String get historyImageUnavailable => 'फोटो उपलब्ध नहीं है';
+
+  @override
+  String get prescriptionImageLabel => 'मूल दवाई पर्चा';
+
+  @override
+  String get openAnalysisInProgress => 'चल रही जाँच खोलें';
+
+  @override
+  String get analysisNotReady => 'आपकी जाँच अभी तैयार हो रही है।';
 }

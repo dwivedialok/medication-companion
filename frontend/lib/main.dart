@@ -10,7 +10,9 @@ import 'firebase_options.dart';
 import 'l10n/app_localizations.dart';
 import 'models/prescription_result.dart';
 import 'providers/locale_provider.dart';
+import 'screens/history_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/job_waiter_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/result_screen.dart';
 import 'screens/upload_screen.dart';
@@ -104,9 +106,28 @@ class MedicationCompanionApp extends StatelessWidget {
         GoRoute(
           path: '/result',
           builder: (context, state) {
-            final result = state.extra as PrescriptionResult;
-            return ResultScreen(result: result);
+            final extra = state.extra;
+            if (extra is PrescriptionResult) {
+              return ResultScreen(result: extra);
+            }
+            if (extra is Map<String, dynamic>) {
+              return ResultScreen(
+                result: extra['result'] as PrescriptionResult,
+                jobId: extra['jobId'] as String?,
+              );
+            }
+            throw StateError('Invalid /result extra: $extra');
           },
+        ),
+        GoRoute(
+          path: '/history',
+          builder: (_, __) => const HistoryScreen(),
+        ),
+        GoRoute(
+          path: '/jobs/:jobId/wait',
+          builder: (context, state) => JobWaiterScreen(
+            jobId: state.pathParameters['jobId']!,
+          ),
         ),
       ],
     );

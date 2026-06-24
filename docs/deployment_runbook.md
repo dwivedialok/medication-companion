@@ -117,7 +117,7 @@ broker only need that ID in env — not a new `make deploy`.
 | 2. Firestore (once) | Console: `(default)`, `us-central1`, Native | See §1 step 3 |
 | 3. Broker + worker images | See below | No `make deploy` unless pipeline code changed |
 
-**First-time async rollout** (Agent Runtime already live, sync path still works):
+**Deploy broker + worker** (Agent Runtime already live):
 
 ```bash
 export GCP_PROJECT=medication-companion-dev
@@ -126,25 +126,45 @@ export GCP_REGION=us-central1
 # Infra + Firestore (once)
 make infra-apply GCP_PROJECT=$GCP_PROJECT
 
-# Deploy broker (ASYNC_PRESCRIPTION=false — sync default) + worker
+# Deploy broker + worker. /prescription is always async — broker enqueues to
+# Pub/Sub, worker processes, client polls GET /jobs/{id}.
 make deploy-async-backend GCP_PROJECT=$GCP_PROJECT GCP_REGION=$GCP_REGION
+
+# Firestore composite indexes (required for History list query).
+# Reads firestore.indexes.json — idempotent, safe to re-run.
+firebase deploy --only firestore:indexes --project $GCP_PROJECT
 ```
 
 `deploy-async-backend` runs `deploy-auth-broker` then `deploy-prescription-worker`.
 Both scripts read `AGENT_RUNTIME_RESOURCE` from `deployment_metadata.json`.
 
-**Enable async responses** after smoke passes (`POST /prescription` → `202`, poll `GET /jobs/{id}`):
-
-```bash
-make deploy-auth-broker GCP_PROJECT=$GCP_PROJECT ASYNC_PRESCRIPTION=true
-```
+The Firestore index deploy is a one-time step per project (and on any new
+index additions). Without it, `GET /prescriptions` fails with a
+`FailedPrecondition: 400 The query requires an index` error.
 
 **After an Agent Runtime redeploy** (pipeline code changed — §4): run
 `make deploy && make deploy-auth-broker` as today, **plus**
 `make deploy-prescription-worker` so the worker gets the new runtime ID.
 
 **Local dev** (no Firestore/Pub/Sub): `make local-auth-broker` with
-`ASYNC_PRESCRIPTION=true JOB_STORE_BACKEND=memory PUBSUB_BACKEND=inline USE_LOCAL_RUNNER=true`.
+`JOB_STORE_BACKEND=memory PUBSUB_BACKEND=inline USE_LOCAL_RUNNER=true`.
+
+**Rollback** (broker — sub-minute, no rebuild):
+
+```bash
+# Before deploying, save the current revision name:
+gcloud run services describe medication-companion-broker \
+  --project=$GCP_PROJECT --region=$GCP_REGION \
+  --format='value(status.latestReadyRevisionName)'
+
+# If something breaks post-deploy, swing traffic back:
+gcloud run services update-traffic medication-companion-broker \
+  --project=$GCP_PROJECT --region=$GCP_REGION \
+  --to-revisions=<saved-revision-name>=100
+
+# Frontend equivalent:
+firebase hosting:rollback --project $GCP_PROJECT
+```
 
 CI does not deploy the worker yet — manual steps above until cicd `pubsub.tf` lands.
 
@@ -206,7 +226,6 @@ No Agent Runtime or auth broker redeploy needed.
 | `PUBSUB_TOPIC` | `deploy/auth_broker/deploy.sh` (default `prescription-jobs`) | Auth broker publish |
 | `FIRESTORE_PROJECT` | Deploy scripts (default `$GCP_PROJECT`) | Auth broker + worker job store |
 | `JOB_STORE_BACKEND` | Deploy scripts (`firestore` in prod) | Auth broker + worker |
-| `ASYNC_PRESCRIPTION` | `deploy-auth-broker` (default `false`; `ASYNC_PRESCRIPTION=true` to cut over) | Auth broker — `202` vs sync `200` |
 | `API_BASE_URL` | Flutter `--dart-define` | Flutter `ApiService` |
 | `ENVIRONMENT` | Flutter `--dart-define` + broker env | Both (toggles dev bypass) |
 | `BIGQUERY_DATASET` | Agent Runtime env (default `medication_companion`) | `backend/evaluation/llm_judge.py` → `eval_log` writes |

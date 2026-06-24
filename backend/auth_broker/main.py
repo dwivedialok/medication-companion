@@ -3,10 +3,12 @@ backend/auth_broker/main.py
 Thin Cloud Run token broker for Medication Companion.
 
 Endpoints:
-  GET  /health       — health check (no auth)
-  POST /upload-url   — issue GCS signed PUT URL for prescription image upload
-  POST /prescription — analyse image at gs:// URI (sync or async via ASYNC_PRESCRIPTION)
-  GET  /jobs/{job_id} — job status + result when async (Phase A)
+  GET  /health                                — health check (no auth)
+  POST /upload-url                            — issue GCS signed PUT URL for prescription image upload
+  POST /prescription                          — enqueue analysis (always async); returns 202 + job_id
+  GET  /jobs/{job_id}                         — poll job status + result
+  GET  /prescriptions                         — list past prescriptions for the authenticated patient
+  GET  /prescriptions/{job_id}/image-url      — short-lived signed GET URL for the original image
 
 Firebase JWT is verified in middleware; patient_id comes from the token UID,
 never from the request body.
@@ -25,28 +27,26 @@ from pydantic import BaseModel, Field
 
 from auth_broker.gcs import (
     assert_gcs_uri_owned_by_patient,
+    create_read_url,
     create_upload_target,
     gcs_upload_hint,
     validate_mime,
 )
 from auth_broker.job_store import get_job_store
-from auth_broker.prescription_handler import run_sync_prescription
 from auth_broker.pubsub_client import build_job_message, get_job_publisher
 from auth_broker.auth import firebase_auth_middleware
 from schemas import (
     JobError,
+    PrescriptionHistoryItem,
+    PrescriptionImageUrlResponse,
     PrescriptionJobEnqueueResponse,
     PrescriptionJobStatus,
+    PrescriptionListResponse,
 )
 
 load_dotenv()
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
-ASYNC_PRESCRIPTION = os.getenv("ASYNC_PRESCRIPTION", "false").lower() in (
-    "true",
-    "1",
-    "yes",
-)
 
 if ENVIRONMENT == "production":
     import google.cloud.logging
@@ -143,32 +143,12 @@ def _validate_prescription_input(
     return mime_type, None
 
 
-def _job_error_response(error) -> JSONResponse:
-    if error.code == "gate1_reject":
-        return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content={
-                "error": "gate1_reject",
-                "message": error.message,
-                "reason": error.reason,
-            },
-        )
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "error": error.code,
-            "message": error.message,
-        },
-    )
-
-
 @app.get("/health")
 async def health() -> dict:
     return {
         "status": "healthy",
         "service": "medication-companion-auth-broker",
         "environment": ENVIRONMENT,
-        "async_prescription": ASYNC_PRESCRIPTION,
     }
 
 
@@ -260,23 +240,12 @@ async def analyze_prescription(body: PrescriptionRequest, request: Request):
         return err
     assert mime_type is not None
 
-    if ASYNC_PRESCRIPTION:
-        return await _enqueue_prescription(
-            patient_id=patient_id,
-            gcs_uri=body.gcs_uri,
-            language=body.language,
-            content_type=mime_type,
-        )
-
-    result, error = await run_sync_prescription(
+    return await _enqueue_prescription(
         patient_id=patient_id,
         gcs_uri=body.gcs_uri,
-        mime_type=mime_type,
         language=body.language,
+        content_type=mime_type,
     )
-    if error is not None:
-        return _job_error_response(error)
-    return result
 
 
 async def _enqueue_prescription(
@@ -347,6 +316,95 @@ async def get_prescription_job(job_id: str, request: Request):
     return job
 
 
+def _summarise_job(job: PrescriptionJobStatus) -> PrescriptionHistoryItem:
+    """Project a job document into the lighter history item shape."""
+    overall_severity = None
+    drug_count = None
+    summary = None
+    if job.result is not None:
+        overall_severity = job.result.overall_severity
+        drug_count = len(job.result.resolved_drugs)
+        text = (job.result.explanation_localised or job.result.explanation_en or "").strip()
+        if text:
+            first_line = text.splitlines()[0]
+            summary = first_line if len(first_line) <= 140 else first_line[:137] + "..."
+    # Language is stored on the job doc but not on PrescriptionJobStatus; fall
+    # back to the result's localised explanation locale when present.
+    language = getattr(job, "language", None) or "en-IN"
+    return PrescriptionHistoryItem(
+        job_id=job.job_id,
+        status=job.status,
+        created_at=job.created_at,
+        updated_at=job.updated_at,
+        language=language,
+        overall_severity=overall_severity,
+        drug_count=drug_count,
+        summary_one_liner=summary,
+        error_code=(job.error.code if job.error is not None else None),
+    )
+
+
+@app.get("/prescriptions", response_model=PrescriptionListResponse)
+async def list_prescriptions(request: Request, limit: int = 50):
+    """
+    Return the authenticated patient's past prescription analyses, newest first.
+    """
+    patient_id: str = request.state.patient_id
+    capped_limit = max(1, min(limit, 100))
+    jobs = await get_job_store().list_jobs(patient_id, limit=capped_limit)
+    items = [_summarise_job(job) for job in jobs]
+    return PrescriptionListResponse(items=items)
+
+
+@app.get(
+    "/prescriptions/{job_id}/image-url",
+    response_model=PrescriptionImageUrlResponse,
+)
+async def get_prescription_image_url(job_id: str, request: Request):
+    """
+    Issue a short-lived signed GET URL for the original prescription image.
+    Ownership is enforced via the job record (same pattern as GET /jobs/{job_id}).
+    """
+    patient_id: str = request.state.patient_id
+    job = await get_job_store().get_job(job_id)
+    if job is None:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"error": "not_found", "message": "Prescription not found."},
+        )
+    if job.patient_id != patient_id:
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"error": "forbidden", "message": "Prescription not found."},
+        )
+
+    gcs_uri = getattr(job, "gcs_uri", None)
+    if not gcs_uri:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"error": "not_found", "message": "Image not available."},
+        )
+
+    try:
+        signed = create_read_url(gcs_uri, expires_minutes=10)
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"error": "not_found", "message": str(exc)},
+        )
+    except Exception as exc:
+        logger.error("Failed to sign read URL for job %s: %s", job_id, exc, exc_info=True)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "error": "image_url_error",
+                "message": "Could not generate image URL.",
+            },
+        )
+
+    return PrescriptionImageUrlResponse(**signed)
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.error("Unhandled exception", exc_info=exc)
@@ -356,8 +414,4 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     )
 
 
-logger.info(
-    "Auth broker started (env=%s, async_prescription=%s)",
-    ENVIRONMENT,
-    ASYNC_PRESCRIPTION,
-)
+logger.info("Auth broker started (env=%s, prescription_mode=async)", ENVIRONMENT)

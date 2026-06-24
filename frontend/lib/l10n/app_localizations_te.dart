@@ -266,4 +266,36 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get langBengali => 'బెంగాలీ';
+
+  @override
+  String get pastPrescriptionsButton => 'గత ప్రిస్క్రిప్షన్‌లు';
+
+  @override
+  String get historyTitle => 'గత ప్రిస్క్రిప్షన్‌లు';
+
+  @override
+  String get historyEmpty =>
+      'ఇంకా గత ప్రిస్క్రిప్షన్‌లు లేవు. ఒకదాన్ని విశ్లేషించి ఇక్కడ చూడండి.';
+
+  @override
+  String get historyLoadError =>
+      'మీ గత ప్రిస్క్రిప్షన్‌లను లోడ్ చేయలేకపోయాము. మళ్లీ ప్రయత్నించడానికి కిందికి లాగండి.';
+
+  @override
+  String get historyProcessing => 'విశ్లేషిస్తోంది...';
+
+  @override
+  String get historyFailed => 'విశ్లేషణ విఫలమైంది';
+
+  @override
+  String get historyImageUnavailable => 'చిత్రం అందుబాటులో లేదు';
+
+  @override
+  String get prescriptionImageLabel => 'అసలు ప్రిస్క్రిప్షన్';
+
+  @override
+  String get openAnalysisInProgress => 'జరుగుతున్న విశ్లేషణను తెరవండి';
+
+  @override
+  String get analysisNotReady => 'మీ విశ్లేషణ ఇంకా సిద్ధమవుతోంది.';
 }
