@@ -8,8 +8,9 @@ Medication Companion is a **multi-agent pipeline** built with Google ADK + Gemin
 Each agent has a single, bounded responsibility. Agents communicate via structured
 Pydantic models through ADK session state — never plain dicts, never free text between agents.
 
-The diagram above shows the production topology: Flutter PWA → auth broker → sync or
-async paths through Vertex AI Agent Runtime, plus the backing datastores and GCP services.
+The diagram above shows the production topology: Flutter PWA → auth broker → Pub/Sub →
+prescription worker → Vertex AI Agent Runtime, with Firestore for job state and History,
+plus the backing datastores and GCP services.
 
 ---
 

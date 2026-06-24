@@ -35,14 +35,23 @@ Every patient-facing string ends with: *"Please discuss this with your doctor or
 ## Architecture
 
 ```
-Flutter PWA  →  Auth Broker (Firebase JWT)  →  Agent Runtime (ADK SequentialAgent)
-                      ↓                              ↓
-                 GCS uploads                   Vertex Memory Bank
-                      ↓                              ↓
-                 TTS audio MP3                  BigQuery eval_log
+┌────────────────────────┐     ┌────────────────────────┐     ┌────────────────────────┐     ┌────────────────────────┐
+│ Flutter PWA            │     │ Auth Broker            │     │ Pub/Sub                │     │ Prescription Worker    │
+│ Firebase Hosting       │────►│ public · JWT verify    │────►│ prescription-jobs      │────►│ private · runs pipeline│
+│ Upload · History · UI  │     │ 202 job · History APIs │     │ async queue            │     │ Agent Runtime A1→A5    │
+└───────────┬────────────┘     └───────────┬────────────┘     └────────────────────────┘     └───────────┬────────────┘
+            │                              │                                                              │
+            │ signed PUT/GET               │ read/write jobs                                              │
+            ▼                              ▼                                                              ▼
+┌────────────────────────┐     ┌────────────────────────┐                                  ┌────────────────────────┐
+│ GCS                    │     │ Firestore              │                                  │ Vertex AI Memory Bank  │
+│ images · TTS MP3       │     │ jobs (status + result) │                                  │ BigQuery eval_log      │
+└────────────────────────┘     └────────────────────────┘                                  └────────────────────────┘
+
 ```
 
-The auth broker verifies Firebase identity and derives `patient_id` from the JWT — never from the client body. The Agent Runtime is private; only the broker is client-facing. Five agents run in strict order via `SequentialAgent` in `backend/agent.py`:
+
+The auth broker is the only public HTTP surface: JWT verify, `patient_id` from UID, `POST /prescription` → **202 + job_id** via Pub/Sub. A private worker runs the pipeline on Agent Runtime; job status and History live in Firestore. Five agents run in strict order via `SequentialAgent` in `backend/agent.py`:
 
 | Agent | Responsibility | Key tool |
 |-------|----------------|----------|
