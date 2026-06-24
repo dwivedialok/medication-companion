@@ -2,6 +2,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/prescription_result.dart';
 
 class ResultScreen extends StatefulWidget {
@@ -43,11 +44,18 @@ class _ResultScreenState extends State<ResultScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+
+    final brandLookup = <String, String>{
+      for (final d in _r.resolvedDrugs)
+        if (d.genericName.isNotEmpty)
+          d.genericName.toLowerCase().trim(): d.rawName,
+    };
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Prescription Analysis'),
+        title: Text(l10n.prescriptionAnalysis),
         leading: IconButton(
           icon: const Icon(Icons.home),
           onPressed: () => context.go('/home'),
@@ -62,22 +70,24 @@ class _ResultScreenState extends State<ResultScreen> {
               _SeverityBanner(severity: _r.overallSeverity),
               const SizedBox(height: 16),
 
-              // Drug cards
               if (_r.resolvedDrugs.isNotEmpty) ...[
-                _SectionHeader('Medications found (${_r.resolvedDrugs.length})'),
+                _SectionHeader(l10n.medicationsFound(_r.resolvedDrugs.length)),
                 ..._r.resolvedDrugs.map((d) => _DrugCard(drug: d)),
                 const SizedBox(height: 16),
               ],
 
-              // Interaction cards
               if (_r.interactions.isNotEmpty) ...[
-                _SectionHeader('Interactions (${_r.interactions.length})'),
-                ..._r.interactions.map((ix) => _InteractionCard(interaction: ix)),
+                _SectionHeader(l10n.interactions(_r.interactions.length)),
+                ..._r.interactions.map(
+                  (ix) => _InteractionCard(
+                    interaction: ix,
+                    brandLookup: brandLookup,
+                  ),
+                ),
                 const SizedBox(height: 16),
               ],
 
-              // Explanation
-              _SectionHeader('Summary'),
+              _SectionHeader(l10n.summary),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -91,9 +101,8 @@ class _ResultScreenState extends State<ResultScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Audio player
               if (_r.audioUrl.isNotEmpty) ...[
-                _SectionHeader('Audio explanation'),
+                _SectionHeader(l10n.audioExplanation),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -112,8 +121,8 @@ class _ResultScreenState extends State<ResultScreen> {
                         Expanded(
                           child: Text(
                             _playerState == PlayerState.playing
-                                ? 'Playing...'
-                                : 'Tap to play audio explanation',
+                                ? l10n.playing
+                                : l10n.tapToPlay,
                             style: theme.textTheme.bodyMedium,
                           ),
                         ),
@@ -124,9 +133,8 @@ class _ResultScreenState extends State<ResultScreen> {
                 const SizedBox(height: 16),
               ],
 
-              // Doctor questions
               if (_r.doctorQuestions.isNotEmpty) ...[
-                _SectionHeader('Questions for your doctor'),
+                _SectionHeader(l10n.doctorQuestions),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -156,7 +164,6 @@ class _ResultScreenState extends State<ResultScreen> {
                 const SizedBox(height: 16),
               ],
 
-              // Disclaimer
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -183,11 +190,10 @@ class _ResultScreenState extends State<ResultScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Back to home
               OutlinedButton.icon(
                 onPressed: () => context.go('/home'),
                 icon: const Icon(Icons.home),
-                label: const Text('Back to home'),
+                label: Text(l10n.backToHome),
               ),
               const SizedBox(height: 16),
             ],
@@ -197,8 +203,6 @@ class _ResultScreenState extends State<ResultScreen> {
     );
   }
 }
-
-// ── Supporting widgets ────────────────────────────────────────────────────────
 
 class _SectionHeader extends StatelessWidget {
   final String title;
@@ -223,37 +227,38 @@ class _SeverityBanner extends StatelessWidget {
   const _SeverityBanner({required this.severity});
 
   (Color, Color, IconData, String) _attrs(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     return switch (severity) {
       'HIGH' => (
           Colors.red.shade700,
           Colors.white,
           Icons.warning_rounded,
-          'High severity — review urgently with your doctor'
+          l10n.severityHigh
         ),
       'MODERATE' => (
           Colors.orange.shade700,
           Colors.white,
           Icons.warning_amber_rounded,
-          'Moderate severity — discuss with your doctor'
+          l10n.severityModerate
         ),
       'LOW' => (
           Colors.green.shade700,
           Colors.white,
           Icons.check_circle_outline,
-          'Low severity — informational'
+          l10n.severityLow
         ),
       'INFO' => (
           cs.primary,
           cs.onPrimary,
           Icons.info_outline,
-          'No interactions found'
+          l10n.severityInfo
         ),
       _ => (
           cs.surfaceContainerHighest,
           cs.onSurface,
           Icons.check_circle_outline,
-          'No concerns identified'
+          l10n.severityNone
         ),
     };
   }
@@ -299,6 +304,7 @@ class _DrugCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final isNew = drug.tag == 'NEW';
     final isUnresolved = drug.tag == 'UNRESOLVED';
@@ -315,7 +321,7 @@ class _DrugCard extends StatelessWidget {
         title: Text(drug.rawName,
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: isUnresolved
-            ? const Text('Could not be resolved')
+            ? Text(l10n.couldNotResolve)
             : Text(drug.genericName),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -347,7 +353,11 @@ class _DrugCard extends StatelessWidget {
 
 class _InteractionCard extends StatelessWidget {
   final InteractionFinding interaction;
-  const _InteractionCard({required this.interaction});
+  final Map<String, String> brandLookup;
+  const _InteractionCard({
+    required this.interaction,
+    required this.brandLookup,
+  });
 
   Color _severityColor(String sev) => switch (sev) {
         'HIGH' => Colors.red.shade700,
@@ -356,9 +366,22 @@ class _InteractionCard extends StatelessWidget {
         _ => Colors.grey,
       };
 
+  /// Returns "generic" or "generic (BRAND)" when the prescription brand
+  /// differs from the generic — helps users match the row to what's
+  /// written on their paper prescription.
+  String _label(String generic) {
+    final key = generic.toLowerCase().trim();
+    final brand = brandLookup[key];
+    if (brand == null || brand.isEmpty) return generic;
+    if (brand.toLowerCase().trim() == key) return generic;
+    return '$generic ($brand)';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final color = _severityColor(interaction.severity);
+    final pairLabel = '${_label(interaction.drugA)} + ${_label(interaction.drugB)}';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -373,7 +396,7 @@ class _InteractionCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '${interaction.drugA} + ${interaction.drugB}',
+                    pairLabel,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -408,7 +431,7 @@ class _InteractionCard extends StatelessWidget {
                       color: Theme.of(context).colorScheme.onSurfaceVariant),
                   const SizedBox(width: 4),
                   Text(
-                    'Detected from your medication history',
+                    l10n.crossVisitDetected,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color:
                               Theme.of(context).colorScheme.onSurfaceVariant,

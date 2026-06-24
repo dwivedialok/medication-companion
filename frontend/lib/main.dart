@@ -1,12 +1,15 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'auth/firebase_auth_service.dart';
 import 'config.dart';
 import 'firebase_options.dart';
+import 'l10n/app_localizations.dart';
 import 'models/prescription_result.dart';
+import 'providers/locale_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/result_screen.dart';
@@ -33,6 +36,7 @@ class MedicationCompanionApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => LocaleProvider()),
         ChangeNotifierProvider(create: (_) => FirebaseAuthService()),
         ProxyProvider<FirebaseAuthService, ApiService>(
           update: (_, auth, __) => ApiService(auth),
@@ -41,10 +45,19 @@ class MedicationCompanionApp extends StatelessWidget {
       child: Builder(
         builder: (context) {
           final auth = context.watch<FirebaseAuthService>();
+          final locale = context.watch<LocaleProvider>().locale;
           final router = _buildRouter(auth);
           return MaterialApp.router(
             title: 'Medication Companion',
             theme: _theme(),
+            locale: locale,
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
             routerConfig: router,
             debugShowCheckedModeBanner: false,
           );
@@ -82,8 +95,9 @@ class MedicationCompanionApp extends StatelessWidget {
           path: '/upload',
           builder: (context, state) {
             final extra = state.extra as Map<String, dynamic>? ?? {};
+            final localeProvider = context.read<LocaleProvider>();
             return UploadScreen(
-              language: extra['language'] as String? ?? 'en-IN',
+              language: extra['language'] as String? ?? localeProvider.languageCode,
             );
           },
         ),

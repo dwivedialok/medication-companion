@@ -4,6 +4,10 @@ import 'package:provider/provider.dart';
 
 import '../auth/firebase_auth_service.dart';
 import '../config.dart';
+import '../l10n/app_localizations.dart';
+import '../utils/password_strength.dart';
+import '../widgets/language_selector.dart';
+import '../widgets/password_strength_indicator.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,22 +21,49 @@ class _LoginScreenState extends State<LoginScreen>
   late final TabController _tabController;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   String? _error;
+  PasswordStrength _passwordStrength = PasswordStrength.empty;
+
+  bool get _isSignUp => _tabController.index == 1;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() => setState(() => _error = null));
+    _tabController.addListener(_onTabChanged);
+    _passwordController.addListener(_onPasswordChanged);
+  }
+
+  void _onTabChanged() {
+    setState(() {
+      if (!_tabController.indexIsChanging) {
+        _error = null;
+        if (_tabController.index == 0) {
+          _confirmPasswordController.clear();
+        }
+      }
+    });
+  }
+
+  void _onPasswordChanged() {
+    setState(() {
+      _passwordStrength = evaluatePasswordStrength(_passwordController.text);
+    });
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
+    _passwordController.removeListener(_onPasswordChanged);
     _tabController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -45,42 +76,40 @@ class _LoginScreenState extends State<LoginScreen>
 
     final auth = context.read<FirebaseAuthService>();
     try {
-      if (_tabController.index == 0) {
-        await auth.signInWithEmail(
+      if (_isSignUp) {
+        await auth.createAccountWithEmail(
           _emailController.text.trim(),
           _passwordController.text,
         );
       } else {
-        await auth.createAccountWithEmail(
+        await auth.signInWithEmail(
           _emailController.text.trim(),
           _passwordController.text,
         );
       }
       if (mounted) context.go('/home');
     } catch (e) {
-      setState(() => _error = _friendlyError(e.toString()));
+      setState(() => _error = _friendlyError(context, e.toString()));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  String _friendlyError(String raw) {
-    if (raw.contains('invalid-email')) return 'Invalid email address.';
+  String _friendlyError(BuildContext context, String raw) {
+    final l10n = AppLocalizations.of(context)!;
+    if (raw.contains('invalid-email')) return l10n.errorInvalidEmail;
     if (raw.contains('wrong-password') || raw.contains('invalid-credential')) {
-      return 'Incorrect email or password.';
+      return l10n.errorWrongPassword;
     }
-    if (raw.contains('user-not-found')) return 'No account found for this email.';
-    if (raw.contains('email-already-in-use')) {
-      return 'An account already exists for this email. Try signing in.';
-    }
-    if (raw.contains('weak-password')) {
-      return 'Password must be at least 6 characters.';
-    }
-    return 'Something went wrong. Please try again.';
+    if (raw.contains('user-not-found')) return l10n.errorUserNotFound;
+    if (raw.contains('email-already-in-use')) return l10n.errorEmailInUse;
+    if (raw.contains('weak-password')) return l10n.errorWeakPassword;
+    return l10n.errorGeneric;
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -93,59 +122,67 @@ class _LoginScreenState extends State<LoginScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 32),
+                  const Align(
+                    alignment: Alignment.centerRight,
+                    child: LanguageSelector(compact: true),
+                  ),
+                  const SizedBox(height: 8),
                   Icon(Icons.medication, size: 64, color: theme.colorScheme.primary),
                   const SizedBox(height: 16),
                   Text(
-                    'Medication Companion',
+                    l10n.appTitle,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   Text(
-                    'AI-powered prescription analysis',
+                    l10n.appSubtitle,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 32),
 
-                  // Dev-mode bypass button
                   if (AppConfig.isLocal) ...[
                     FilledButton.icon(
-                      onPressed: () => context.go('/home'),
+                      onPressed: () {
+                        context.read<FirebaseAuthService>().signInLocalDev();
+                        context.go('/home');
+                      },
                       icon: const Icon(Icons.developer_mode),
-                      label: const Text('Continue in dev mode'),
+                      label: Text(l10n.continueDevMode),
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.orange.shade700,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'ENVIRONMENT=local — Firebase auth bypassed',
+                      l10n.devModeHint,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: Colors.orange.shade700,
                       ),
                     ),
                     const SizedBox(height: 24),
-                    const Row(children: [
-                      Expanded(child: Divider()),
+                    Row(children: [
+                      const Expanded(child: Divider()),
                       Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 12),
-                        child: Text('or sign in with Firebase'),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(l10n.orSignInFirebase),
                       ),
-                      Expanded(child: Divider()),
+                      const Expanded(child: Divider()),
                     ]),
                     const SizedBox(height: 24),
                   ],
 
-                  // Sign in / Sign up tabs
                   TabBar(
                     controller: _tabController,
-                    tabs: const [Tab(text: 'Sign in'), Tab(text: 'Create account')],
+                    tabs: [
+                      Tab(text: l10n.signIn),
+                      Tab(text: l10n.createAccount),
+                    ],
                   ),
                   const SizedBox(height: 24),
                   Form(
@@ -156,35 +193,128 @@ class _LoginScreenState extends State<LoginScreen>
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
+                          autofillHints: const [AutofillHints.email],
                           textInputAction: TextInputAction.next,
-                          decoration: const InputDecoration(
-                            labelText: 'Email',
-                            prefixIcon: Icon(Icons.email_outlined),
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: l10n.email,
+                            prefixIcon: const Icon(Icons.email_outlined),
+                            border: const OutlineInputBorder(),
                           ),
-                          validator: (v) =>
-                              (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
+                          validator: (v) {
+                            final value = v?.trim() ?? '';
+                            if (value.isEmpty || !value.contains('@')) {
+                              return l10n.emailInvalid;
+                            }
+                            return null;
+                          },
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: _passwordController,
-                          obscureText: true,
-                          textInputAction: TextInputAction.done,
-                          onFieldSubmitted: (_) => _submit(),
-                          decoration: const InputDecoration(
-                            labelText: 'Password',
-                            prefixIcon: Icon(Icons.lock_outline),
-                            border: OutlineInputBorder(),
+                          obscureText: _obscurePassword,
+                          autofillHints: _isSignUp
+                              ? const [AutofillHints.newPassword]
+                              : const [AutofillHints.password],
+                          textInputAction:
+                              _isSignUp ? TextInputAction.next : TextInputAction.done,
+                          onFieldSubmitted: _isSignUp ? null : (_) => _submit(),
+                          decoration: InputDecoration(
+                            labelText: l10n.password,
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            border: const OutlineInputBorder(),
+                            helperText: _isSignUp ? l10n.passwordStrengthHint : null,
+                            helperMaxLines: 2,
+                            suffixIcon: IconButton(
+                              tooltip: _obscurePassword
+                                  ? l10n.showPassword
+                                  : l10n.hidePassword,
+                              onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                              ),
+                            ),
                           ),
-                          validator: (v) =>
-                              (v == null || v.length < 6) ? 'Minimum 6 characters' : null,
+                          validator: (v) {
+                            if (v == null || v.length < 6) {
+                              return l10n.passwordMinLength;
+                            }
+                            return null;
+                          },
+                        ),
+                        if (_isSignUp)
+                          PasswordStrengthIndicator(strength: _passwordStrength),
+                        AnimatedCrossFade(
+                          duration: const Duration(milliseconds: 200),
+                          crossFadeState: _isSignUp
+                              ? CrossFadeState.showSecond
+                              : CrossFadeState.showFirst,
+                          firstChild: const SizedBox.shrink(),
+                          secondChild: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _confirmPasswordController,
+                                obscureText: _obscureConfirmPassword,
+                                autofillHints: const [AutofillHints.newPassword],
+                                textInputAction: TextInputAction.done,
+                                onFieldSubmitted: (_) => _submit(),
+                                decoration: InputDecoration(
+                                  labelText: l10n.confirmPassword,
+                                  prefixIcon: const Icon(Icons.lock_person_outlined),
+                                  border: const OutlineInputBorder(),
+                                  suffixIcon: IconButton(
+                                    tooltip: _obscureConfirmPassword
+                                        ? l10n.showPassword
+                                        : l10n.hidePassword,
+                                    onPressed: () => setState(
+                                      () => _obscureConfirmPassword =
+                                          !_obscureConfirmPassword,
+                                    ),
+                                    icon: Icon(
+                                      _obscureConfirmPassword
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined,
+                                    ),
+                                  ),
+                                ),
+                                validator: (v) {
+                                  if (!_isSignUp) return null;
+                                  if (v != _passwordController.text) {
+                                    return l10n.passwordsDoNotMatch;
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                l10n.createAccountDisclaimer,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         if (_error != null) ...[
                           const SizedBox(height: 12),
-                          Text(
-                            _error!,
-                            style: TextStyle(color: theme.colorScheme.error),
-                            textAlign: TextAlign.center,
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.errorContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _error!,
+                              style: TextStyle(
+                                color: theme.colorScheme.onErrorContainer,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
                         ],
                         const SizedBox(height: 24),
@@ -199,7 +329,7 @@ class _LoginScreenState extends State<LoginScreen>
                               : AnimatedBuilder(
                                   animation: _tabController,
                                   builder: (_, __) => Text(
-                                    _tabController.index == 0 ? 'Sign in' : 'Create account',
+                                    _isSignUp ? l10n.createAccount : l10n.signIn,
                                   ),
                                 ),
                         ),

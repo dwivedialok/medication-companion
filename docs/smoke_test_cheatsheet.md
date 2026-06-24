@@ -530,7 +530,7 @@ cd frontend && flutter run -d chrome
 ```bash
 export ENVIRONMENT=local
 export DEV_PATIENT_ID=dev-patient-001
-export USE_LOCAL_RUNNER=false          # ← use remote Runtime
+export USE_LOCAL_RUNNER=false          
 export GCS_BUCKET=medication-companion-uploads
 export GOOGLE_CLOUD_PROJECT=$GCP_PROJECT
 # AGENT_RUNTIME_RESOURCE picked up from deployment_metadata.json automatically

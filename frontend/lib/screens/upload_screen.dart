@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../services/api_service.dart';
 
 class UploadScreen extends StatefulWidget {
@@ -25,19 +26,20 @@ class _UploadScreenState extends State<UploadScreen> {
   String? _errorMessage;
   bool _retakeNeeded = false;
 
-  static const _steps = [
-    'Reading prescription...',
-    'Checking interactions...',
-    'Generating explanation...',
-  ];
+  List<String> _steps(AppLocalizations l10n) => [
+        l10n.stepReading,
+        l10n.stepChecking,
+        l10n.stepGenerating,
+      ];
 
-  static const _asyncStatusLabels = {
-    'pending': 'Queued for analysis...',
-    'processing': 'Analysing prescription...',
-    'done': 'Preparing your results...',
-  };
+  Map<String, String> _asyncStatusLabels(AppLocalizations l10n) => {
+        'pending': l10n.statusPending,
+        'processing': l10n.statusProcessing,
+        'done': l10n.statusDone,
+      };
 
   Future<void> _pickImage(ImageSource source) async {
+    final l10n = AppLocalizations.of(context)!;
     try {
       final file = await _picker.pickImage(
         source: source,
@@ -52,7 +54,7 @@ class _UploadScreenState extends State<UploadScreen> {
         });
       }
     } catch (e) {
-      setState(() => _errorMessage = 'Could not access camera/gallery: $e');
+      setState(() => _errorMessage = l10n.accessError(e.toString()));
     }
   }
 
@@ -66,8 +68,11 @@ class _UploadScreenState extends State<UploadScreen> {
       _retakeNeeded = false;
     });
 
-    // Cosmetic step animation for sync path; async uses onJobStatus labels.
-    final stepTimer = _runStepAnimation();
+    final l10n = AppLocalizations.of(context)!;
+    final steps = _steps(l10n);
+    final asyncLabels = _asyncStatusLabels(l10n);
+
+    final stepTimer = _runStepAnimation(steps.length);
 
     try {
       final imageBytes = await _pickedFile!.readAsBytes();
@@ -81,7 +86,7 @@ class _UploadScreenState extends State<UploadScreen> {
             onJobStatus: (status) {
               if (!mounted) return;
               setState(() {
-                _statusMessage = _asyncStatusLabels[status];
+                _statusMessage = asyncLabels[status];
                 if (status == 'processing') {
                   _stepIndex = 1;
                 }
@@ -109,10 +114,10 @@ class _UploadScreenState extends State<UploadScreen> {
     }
   }
 
-  _Cancellable _runStepAnimation() {
+  _Cancellable _runStepAnimation(int stepCount) {
     var cancelled = false;
     Future<void> advance() async {
-      for (var i = 1; i < _steps.length; i++) {
+      for (var i = 1; i < stepCount; i++) {
         await Future.delayed(const Duration(seconds: 6));
         if (cancelled || !mounted) return;
         setState(() => _stepIndex = i);
@@ -135,11 +140,12 @@ class _UploadScreenState extends State<UploadScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scan prescription'),
+        title: Text(l10n.scanPrescription),
         leading: _loading
             ? null
             : IconButton(
@@ -150,17 +156,16 @@ class _UploadScreenState extends State<UploadScreen> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: _loading ? _buildLoading(theme) : _buildPicker(theme),
+          child: _loading ? _buildLoading(theme, l10n) : _buildPicker(theme, l10n),
         ),
       ),
     );
   }
 
-  Widget _buildPicker(ThemeData theme) {
+  Widget _buildPicker(ThemeData theme, AppLocalizations l10n) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Image preview / placeholder
         Expanded(
           child: GestureDetector(
             onTap: () => _pickImage(ImageSource.gallery),
@@ -179,8 +184,7 @@ class _UploadScreenState extends State<UploadScreen> {
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(15),
                       child: FutureBuilder<Uint8List?>(
-                        // ignore: deprecated_member_use
-                        future: _pickedFile!.readAsBytes().then((b) => Uint8List.fromList(b)),
+                        future: _pickedFile!.readAsBytes().then(Uint8List.fromList),
                         builder: (context, snap) {
                           if (!snap.hasData) {
                             return const Center(child: CircularProgressIndicator());
@@ -199,7 +203,7 @@ class _UploadScreenState extends State<UploadScreen> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Tap to select from gallery',
+                          l10n.tapGallery,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -210,7 +214,6 @@ class _UploadScreenState extends State<UploadScreen> {
           ),
         ),
 
-        // Error / retake message
         if (_errorMessage != null) ...[
           const SizedBox(height: 16),
           Container(
@@ -236,14 +239,13 @@ class _UploadScreenState extends State<UploadScreen> {
 
         const SizedBox(height: 20),
 
-        // Camera / Gallery buttons
         Row(
           children: [
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: () => _pickImage(ImageSource.camera),
                 icon: const Icon(Icons.camera_alt),
-                label: const Text('Camera'),
+                label: Text(l10n.camera),
               ),
             ),
             const SizedBox(width: 12),
@@ -251,18 +253,17 @@ class _UploadScreenState extends State<UploadScreen> {
               child: OutlinedButton.icon(
                 onPressed: () => _pickImage(ImageSource.gallery),
                 icon: const Icon(Icons.photo_library),
-                label: const Text('Gallery'),
+                label: Text(l10n.gallery),
               ),
             ),
           ],
         ),
         const SizedBox(height: 12),
 
-        // Submit / Retake button
         FilledButton.icon(
           onPressed: _pickedFile == null ? null : _submit,
           icon: Icon(_retakeNeeded ? Icons.refresh : Icons.send),
-          label: Text(_retakeNeeded ? 'Retake photo' : 'Analyse prescription'),
+          label: Text(_retakeNeeded ? l10n.retakePhoto : l10n.analysePrescription),
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
           ),
@@ -271,22 +272,22 @@ class _UploadScreenState extends State<UploadScreen> {
     );
   }
 
-  Widget _buildLoading(ThemeData theme) {
+  Widget _buildLoading(ThemeData theme, AppLocalizations l10n) {
+    final steps = _steps(l10n);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const CircularProgressIndicator(),
         const SizedBox(height: 32),
         Text(
-          _statusMessage ?? _steps[_stepIndex],
+          _statusMessage ?? steps[_stepIndex],
           style: theme.textTheme.titleMedium,
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
-        // Step dots
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(_steps.length, (i) {
+          children: List.generate(steps.length, (i) {
             final active = i <= _stepIndex;
             return AnimatedContainer(
               duration: const Duration(milliseconds: 300),
@@ -304,7 +305,7 @@ class _UploadScreenState extends State<UploadScreen> {
         ),
         const SizedBox(height: 24),
         Text(
-          'This takes about 20-40 seconds.\nPlease keep this screen open.',
+          l10n.loadingHint,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,

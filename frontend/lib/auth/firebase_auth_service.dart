@@ -20,8 +20,15 @@ class FirebaseAuthService extends ChangeNotifier {
 
   User? _user;
 
-  /// True when there is an authenticated user (or running in local dev mode).
-  bool get isSignedIn => AppConfig.isLocal || _user != null;
+  /// Local dev session flag — [AppConfig.isLocal] alone must not keep the user
+  /// signed in after an explicit sign-out (GoRouter would bounce back to /home).
+  bool _localDevSignedIn = true;
+
+  /// True when there is an authenticated user (or an active local dev session).
+  bool get isSignedIn {
+    if (AppConfig.isLocal) return _localDevSignedIn;
+    return _user != null;
+  }
 
   /// Display name for UI: email in prod, "Dev User" locally.
   String get displayName {
@@ -36,8 +43,16 @@ class FirebaseAuthService extends ChangeNotifier {
     return _user?.getIdToken();
   }
 
+  /// Marks the user as signed in for local dev (no Firebase call).
+  void signInLocalDev() {
+    if (!AppConfig.isLocal) return;
+    _localDevSignedIn = true;
+    notifyListeners();
+  }
+
   Future<void> signInWithEmail(String email, String password) async {
     if (AppConfig.isLocal) {
+      _localDevSignedIn = true;
       notifyListeners();
       return;
     }
@@ -49,6 +64,7 @@ class FirebaseAuthService extends ChangeNotifier {
 
   Future<void> createAccountWithEmail(String email, String password) async {
     if (AppConfig.isLocal) {
+      _localDevSignedIn = true;
       notifyListeners();
       return;
     }
@@ -60,6 +76,7 @@ class FirebaseAuthService extends ChangeNotifier {
 
   Future<void> signOut() async {
     if (AppConfig.isLocal) {
+      _localDevSignedIn = false;
       notifyListeners();
       return;
     }
