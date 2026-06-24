@@ -1,7 +1,12 @@
+---
+name: Add a new drug data source
+description: Reusable workflow for extending the drug lookup index with new datasets or curated CSVs.
+---
+
 # Skill: Add a new drug data source
 
 Reusable workflow for extending the drug lookup index. Follow after updating
-[AGENTS.md](../../AGENTS.md) if lookup behaviour changes.
+[AGENTS.md](../../../AGENTS.md) if lookup behaviour changes.
 
 ## When to use
 
@@ -16,15 +21,15 @@ Reusable workflow for extending the drug lookup index. Follow after updating
 
 ## Steps
 
-1. **Choose priority tier** — read lookup order in [backend/tools/drug_lookup.py](../../backend/tools/drug_lookup.py):
+1. **Choose priority tier** — read lookup order in [backend/tools/drug_lookup.py](../../../backend/tools/drug_lookup.py):
    - Curated CSV (`india_brands.csv`) = highest priority
    - SQLite exact / FTS / fuzzy = built index
    - RxNav = production only (`ENVIRONMENT != local`)
 
-2. **Extend the build script** — edit [scripts/build_drug_index.py](../../scripts/build_drug_index.py):
+2. **Extend the build script** — edit [scripts/build_drug_index.py](../../../scripts/build_drug_index.py):
    - Add an iterator function for the new source (do not hard-code paths in tool files)
    - Map columns to: `brand_norm`, `generic`, `source`, optional `therapeutic_class`
-   - For interactions: emit rows into the `interactions` table schema (see [specs/schemas/interaction_matrix.yaml](../../specs/schemas/interaction_matrix.yaml))
+   - For interactions: emit rows into the `interactions` table schema (see [specs/schemas/interaction_matrix.yaml](../../../specs/schemas/interaction_matrix.yaml))
 
 3. **Rebuild the index**
 
@@ -34,7 +39,7 @@ Reusable workflow for extending the drug lookup index. Follow after updating
 
    Output: `data/drugs.db` (~60 MB, committed).
 
-4. **Add eval cases** — extend [tests/unit/test_drug_lookup_eval.py](../../tests/unit/test_drug_lookup_eval.py):
+4. **Add eval cases** — extend [tests/unit/test_drug_lookup_eval.py](../../../tests/unit/test_drug_lookup_eval.py):
    - At least one positive match from the new source
    - One OCR-noise variant if brands are handwritten on prescriptions
    - One negative case (must stay UNRESOLVED, not hallucinate)

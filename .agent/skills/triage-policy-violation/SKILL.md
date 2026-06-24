@@ -1,3 +1,8 @@
+---
+name: Triage a policy server violation
+description: Runbook for diagnosing Policy Server deny events. Requires Step 3 implementation (backend/policy/policy_server.py).
+---
+
 # Skill: Triage a policy server violation
 
 Runbook for diagnosing Policy Server deny events. Requires Step 3 implementation
@@ -40,7 +45,7 @@ deny at image_intake?
 
 ## False positive remediation
 
-1. Confirm rubric in [backend/policy/rubric.yaml](../../backend/policy/rubric.yaml) (Step 3)
+1. Confirm rubric in [backend/policy/rubric.yaml](../../../backend/policy/rubric.yaml) (Step 3)
 2. Adjust semantic judge prompt — never disable the gate entirely
 3. Add a regression test to `tests/unit/test_policy_server.py`
 4. Re-run red-team subset: `uv run pytest tests/unit/test_policy_server.py -k deny`
@@ -63,4 +68,4 @@ If deny rate spikes in production (>5% of prescriptions):
 1. Sample 10 traces with `policy_decision=deny`
 2. Classify false vs true positive ratio
 3. If >50% false positives on one class, open issue with rubric + sample evidence
-4. See [docs/forensic_prompts.md](../../docs/forensic_prompts.md) template "Policy Server false positive"
+4. See [docs/forensic_prompts.md](../../../docs/forensic_prompts.md) template "Policy Server false positive"
