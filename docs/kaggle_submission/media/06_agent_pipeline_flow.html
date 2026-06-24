@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Agent Pipeline — Medication Companion</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #ECEFF1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 32px;
+    }
+    .canvas {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.1);
+      padding: 36px 40px;
+      max-width: 920px;
+      width: 100%;
+    }
+    h1 {
+      font-size: 20px;
+      color: #1A237E;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .sub {
+      text-align: center;
+      font-size: 13px;
+      color: #607D8B;
+      margin-bottom: 28px;
+    }
+    .flow {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
+    .agent {
+      flex: 1;
+      min-width: 130px;
+      border: 2px solid #C5CAE9;
+      border-radius: 12px;
+      padding: 14px 12px;
+      background: #FAFAFA;
+      position: relative;
+    }
+    .agent.highlight { border-color: #1A237E; background: #E8EAF6; }
+    .num {
+      display: inline-block;
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: #1A237E;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+      line-height: 24px;
+      margin-bottom: 8px;
+    }
+    .name { font-weight: 700; font-size: 13px; color: #212121; margin-bottom: 4px; }
+    .role { font-size: 11px; color: #455A64; line-height: 1.35; margin-bottom: 8px; }
+    .tool {
+      font-size: 10px;
+      color: #1565C0;
+      background: #E3F2FD;
+      border-radius: 4px;
+      padding: 3px 6px;
+      display: inline-block;
+      margin: 2px 2px 0 0;
+    }
+    .arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      color: #7986CB;
+      font-size: 22px;
+      font-weight: 300;
+    }
+    .io {
+      margin-top: 20px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #78909C;
+    }
+    .io span { background: #F5F5F5; padding: 6px 10px; border-radius: 6px; }
+    .gate {
+      text-align: center;
+      font-size: 11px;
+      color: #C62828;
+      margin-top: 12px;
+      font-weight: 600;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 16px;
+      font-size: 11px;
+      color: #90A4AE;
+    }
+  </style>
+</head>
+<body>
+  <div class="canvas">
+    <h1>Medication Companion — ADK SequentialAgent Pipeline</h1>
+    <p class="sub">End-to-end flow: prescription image → safety result + localized audio</p>
+
+    <div class="flow">
+      <div class="agent">
+        <div class="num">1</div>
+        <div class="name">Reader</div>
+        <div class="role">Gemini Vision OCR<br/>Gate 1 confidence ≥ 0.75</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="agent highlight">
+        <div class="num">2</div>
+        <div class="name">Resolver</div>
+        <div class="role">Brand → generic<br/>FDC split</div>
+        <span class="tool">drug_lookup</span>
+        <span class="tool">combo_splitter</span>
+      </div>
+      <div class="arrow">→</div>
+      <div class="agent highlight">
+        <div class="num">3</div>
+        <div class="name">Safety</div>
+        <div class="role">Cross-visit DDI check<br/>NEW vs EXISTING</div>
+        <span class="tool">check_prescription_interactions</span>
+      </div>
+      <div class="arrow">→</div>
+      <div class="agent">
+        <div class="num">4</div>
+        <div class="name">Education</div>
+        <div class="role">Plain-language summary<br/>Doctor questions</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="agent">
+        <div class="num">5</div>
+        <div class="name">Localisation</div>
+        <div class="role">Translate hi/ta/te/bn<br/>GCP Text-to-Speech</div>
+        <span class="tool">text_to_speech</span>
+      </div>
+    </div>
+
+    <p class="gate">Gate 1 reject halts pipeline before Agent 2</p>
+
+    <div class="io">
+      <span>📷 In: prescription image</span>
+      <span>💾 Memory Bank: prior visit generics</span>
+      <span>🔊 Out: localized text + audio URL</span>
+    </div>
+
+    <p class="footer">Google ADK SequentialAgent · backend/agent.py</p>
+  </div>
+</body>
+</html>

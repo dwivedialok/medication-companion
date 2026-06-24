@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Result — English</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; display: flex; justify-content: center;
+      background: #ECEFF1; font-family: system-ui, -apple-system, sans-serif;
+    }
+    .phone {
+      width: 390px; min-height: 844px; background: #FAFAFA; margin: 24px;
+      border-radius: 24px; box-shadow: 0 8px 32px rgba(0,0,0,.12); overflow: hidden;
+    }
+    .header { background: #1A237E; color: #fff; padding: 20px 16px 12px; }
+    .header h1 { margin: 0; font-size: 18px; font-weight: 600; }
+    .header p { margin: 4px 0 0; font-size: 12px; opacity: .85; }
+    .banner {
+      margin: 16px; padding: 14px 16px; border-radius: 12px; color: #fff;
+      background: #B71C1C; font-weight: 600; font-size: 15px;
+    }
+    .section { padding: 0 16px 12px; }
+    .section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em;
+      color: #607D8B; margin: 16px 0 8px; }
+    .card {
+      background: #fff; border-radius: 12px; padding: 12px 14px; margin-bottom: 8px;
+      border: 1px solid #E0E0E0;
+    }
+    .drug .name { font-weight: 600; color: #212121; }
+    .drug .generic { color: #455A64; font-size: 14px; margin-top: 4px; }
+    .tag {
+      display: inline-block; margin-top: 8px; padding: 2px 8px; border-radius: 999px;
+      background: #E3F2FD; color: #1565C0; font-size: 11px; font-weight: 600;
+    }
+    .interaction .sev { color: #B71C1C; font-weight: 700; font-size: 12px; }
+    .interaction .pair { font-weight: 600; margin: 4px 0; }
+    .interaction p { margin: 0; font-size: 13px; color: #37474F; line-height: 1.45; }
+    .summary { font-size: 14px; line-height: 1.5; color: #263238; }
+    .audio {
+      margin: 12px 16px; padding: 12px; background: #E8EAF6; border-radius: 12px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .audio button {
+      background: #1A237E; color: #fff; border: 0; border-radius: 999px;
+      padding: 10px 16px; font-weight: 600; cursor: default;
+    }
+    .audio span { font-size: 11px; color: #5C6BC0; }
+    .questions ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.5; }
+    .disclaimer {
+      margin: 16px; padding: 12px; background: #FFF8E1; border-radius: 8px;
+      font-size: 12px; color: #5D4037; line-height: 1.4;
+    }
+    .lang { float: right; font-size: 11px; opacity: .9; }
+  </style>
+</head>
+<body>
+  <div class="phone">
+    <div class="header">
+      <span class="lang">en-IN</span>
+      <h1>Medication Companion</h1>
+      <p>AI-powered prescription analysis</p>
+    </div>
+    <div class="banner">HIGH — review interactions before starting these medicines</div>
+    <div class="section">
+      <h2>Medications (4)</h2>
+      <div class="card drug">
+          <div class="name">Ecosprin</div>
+          <div class="generic">→ aspirin</div>
+          <span class="tag">NEW</span>
+        </div><div class="card drug">
+          <div class="name">Nise</div>
+          <div class="generic">→ nimesulide</div>
+          <span class="tag">NEW</span>
+        </div><div class="card drug">
+          <div class="name">Warf</div>
+          <div class="generic">→ warfarin</div>
+          <span class="tag">NEW</span>
+        </div><div class="card drug">
+          <div class="name">Flagyl</div>
+          <div class="generic">→ metronidazole</div>
+          <span class="tag">NEW</span>
+        </div>
+    </div>
+    <div class="section">
+      <h2>Interactions (3)</h2>
+      <div class="card interaction">
+          <div class="sev">HIGH</div>
+          <div class="pair">aspirin + nimesulide</div>
+          <p>Taking aspirin with nimesulide may increase the risk of stomach or intestinal bleeding. Please discuss this with your doctor or pharmacist.</p>
+        </div><div class="card interaction">
+          <div class="sev">HIGH</div>
+          <div class="pair">aspirin + warfarin</div>
+          <p>Combined antiplatelet and anticoagulant therapy increases bleeding risk. Please discuss this with your doctor or pharmacist.</p>
+        </div><div class="card interaction">
+          <div class="sev">HIGH</div>
+          <div class="pair">metronidazole + warfarin</div>
+          <p>Metronidazole can increase the effect of warfarin, raising bleeding risk. Please discuss this with your doctor or pharmacist.</p>
+        </div>
+    </div>
+    <div class="audio">
+          <button type="button">▶ Play explanation audio</button>
+          <span>GCP Text-to-Speech · 24h signed URL</span>
+        </div>
+    <div class="section">
+      <h2>Summary</h2>
+      <div class="card summary">The combination of medicines on your prescription may carry a serious bleeding risk. Aspirin with nimesulide can irritate the stomach lining. Aspirin with warfarin further thins the blood. Metronidazole can amplify warfarin&#x27;s effect. Please speak with your doctor before starting these medicines.</div>
+    </div>
+    <div class="section questions">
+      <h2>Questions for your doctor</h2>
+      <div class="card"><ul><li>Is it safe to take these medicines together, or are there safer alternatives?</li><li>What signs of bleeding should I watch for?</li><li>Do I need blood tests to monitor these medicines?</li></ul></div>
+    </div>
+    <div class="disclaimer">Please discuss this with your doctor or pharmacist before making any changes.</div>
+  </div>
+</body>
+</html>

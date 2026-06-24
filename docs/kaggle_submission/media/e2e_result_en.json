@@ -1,0 +1,43 @@
+{
+  "session_id": "runtime-uLtiUvNhJpPAb14qjpOYOf9Dm133",
+  "resolved_drugs": [
+    {"raw_name": "Ecosprin", "generic_name": "aspirin", "drug_class": null, "tag": "NEW"},
+    {"raw_name": "Nise", "generic_name": "nimesulide", "drug_class": null, "tag": "NEW"},
+    {"raw_name": "Warf", "generic_name": "warfarin", "drug_class": null, "tag": "NEW"},
+    {"raw_name": "Flagyl", "generic_name": "metronidazole", "drug_class": null, "tag": "NEW"}
+  ],
+  "interactions": [
+    {
+      "drug_a": "aspirin",
+      "drug_b": "nimesulide",
+      "severity": "HIGH",
+      "mechanism": "Taking aspirin with nimesulide may increase the risk of stomach or intestinal bleeding. Please discuss this with your doctor or pharmacist.",
+      "source": "current_visit"
+    },
+    {
+      "drug_a": "aspirin",
+      "drug_b": "warfarin",
+      "severity": "HIGH",
+      "mechanism": "Combined antiplatelet and anticoagulant therapy increases bleeding risk. Please discuss this with your doctor or pharmacist.",
+      "source": "current_visit"
+    },
+    {
+      "drug_a": "metronidazole",
+      "drug_b": "warfarin",
+      "severity": "HIGH",
+      "mechanism": "Metronidazole can increase the effect of warfarin, raising bleeding risk. Please discuss this with your doctor or pharmacist.",
+      "source": "current_visit"
+    }
+  ],
+  "overall_severity": "HIGH",
+  "explanation_en": "The combination of medicines on your prescription may carry a serious bleeding risk. Aspirin with nimesulide can irritate the stomach lining. Aspirin with warfarin further thins the blood. Metronidazole can amplify warfarin's effect. Please speak with your doctor before starting these medicines.",
+  "explanation_localised": "The combination of medicines on your prescription may carry a serious bleeding risk. Aspirin with nimesulide can irritate the stomach lining. Aspirin with warfarin further thins the blood. Metronidazole can amplify warfarin's effect. Please speak with your doctor before starting these medicines.",
+  "audio_url": "https://storage.googleapis.com/medication-companion-uploads/audio/en-IN/example.mp3",
+  "doctor_questions": [
+    "Is it safe to take these medicines together, or are there safer alternatives?",
+    "What signs of bleeding should I watch for?",
+    "Do I need blood tests to monitor these medicines?"
+  ],
+  "disclaimer": "Please discuss this with your doctor or pharmacist before making any changes.",
+  "eval_scores": null
+}

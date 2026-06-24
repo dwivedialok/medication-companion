@@ -29,6 +29,8 @@ locals {
     # Firebase Hosting (site + service agent for Cloud Run rewrites).
     "firebase.googleapis.com",
     "firebasehosting.googleapis.com",
+    "pubsub.googleapis.com",
+    "firestore.googleapis.com",
   ]
 }
 

@@ -24,6 +24,13 @@ logger = logging.getLogger(__name__)
 # ADK App.name on Agent Runtime (must match backend/agent.py).
 _MEMORY_APP_NAME = os.getenv("ADK_APP_NAME", "backend")
 
+# Vertex Memory Bank retrieve is semantic similarity search (top-K), not a full
+# listing. Use current Rx drug names as the primary query, then merge a broad
+# fallback so disjoint prior visits (cross-visit safety) are not missed.
+_BROAD_MEMORY_SEARCH_QUERY = (
+    "patient medication visits resolved_drugs visit_timestamp severity_summary"
+)
+
 
 def _resolve_agent_engine_id() -> str | None:
     """Resolve Reasoning Engine id for VertexAiMemoryBankService.
@@ -80,6 +87,38 @@ def _memory_entry_to_visit(entry: MemoryEntry) -> dict[str, Any] | None:
     return data
 
 
+def _build_memory_search_query(search_terms: list[str]) -> str | None:
+    """Join unique drug names / OCR tokens for a Vertex similarity search."""
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for term in search_terms:
+        text = str(term).strip()
+        if not text:
+            continue
+        key = text.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(text)
+    if not cleaned:
+        return None
+    return " ".join(cleaned)
+
+
+def _merge_visits(*visit_lists: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Dedupe visit records by visit_timestamp (stable order, first wins)."""
+    merged: list[dict[str, Any]] = []
+    seen_timestamps: set[str] = set()
+    for visits in visit_lists:
+        for visit in visits:
+            timestamp = str(visit.get("visit_timestamp", ""))
+            if not timestamp or timestamp in seen_timestamps:
+                continue
+            seen_timestamps.add(timestamp)
+            merged.append(visit)
+    return merged
+
+
 class MemoryServiceWrapper:
     """
     Stable interface for reading/writing patient medication history.
@@ -93,9 +132,36 @@ class MemoryServiceWrapper:
     def is_local(self) -> bool:
         return self._backend is None
 
-    async def get_medications_for_patient(self, patient_id: str) -> list[dict]:
+    async def _search_vertex_visits(
+        self,
+        patient_id: str,
+        query: str,
+    ) -> list[dict[str, Any]]:
+        response = await self._backend.search_memory(
+            app_name=_MEMORY_APP_NAME,
+            user_id=patient_id,
+            query=query,
+        )
+        visits: list[dict[str, Any]] = []
+        for entry in response.memories or []:
+            visit = _memory_entry_to_visit(entry)
+            if visit is not None:
+                visits.append(visit)
+        return visits
+
+    async def get_medications_for_patient(
+        self,
+        patient_id: str,
+        *,
+        search_terms: list[str] | None = None,
+    ) -> list[dict]:
         """
         Retrieve prior visit records for a patient.
+
+        When ``search_terms`` is provided (Agent 1 OCR names or resolved
+        generics for the current Rx), those are used as the primary Vertex
+        similarity query. A broad fallback query is always merged in so prior
+        visits with disjoint drug sets remain visible for cross-visit safety.
 
         Returns list of dicts: {visit_timestamp, resolved_drugs, severity_summary}.
         Returns [] if no history exists.
@@ -103,17 +169,26 @@ class MemoryServiceWrapper:
         if self.is_local():
             return list(self._local_store.get(patient_id, []))
 
+        queries: list[str] = []
+        primary_query = _build_memory_search_query(search_terms or [])
+        if primary_query:
+            queries.append(primary_query)
+        if _BROAD_MEMORY_SEARCH_QUERY not in queries:
+            queries.append(_BROAD_MEMORY_SEARCH_QUERY)
+
         try:
-            response = await self._backend.search_memory(
-                app_name=_MEMORY_APP_NAME,
-                user_id=patient_id,
-                query="medication history",
+            result_sets: list[list[dict[str, Any]]] = []
+            for query in queries:
+                result_sets.append(
+                    await self._search_vertex_visits(patient_id, query)
+                )
+            visits = _merge_visits(*result_sets)
+            logger.info(
+                "Memory retrieve for patient %s: %d visit(s) from %d search(es)",
+                patient_id,
+                len(visits),
+                len(queries),
             )
-            visits: list[dict[str, Any]] = []
-            for entry in response.memories:
-                visit = _memory_entry_to_visit(entry)
-                if visit is not None:
-                    visits.append(visit)
             return visits
         except Exception as exc:
             logger.error(

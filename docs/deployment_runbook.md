@@ -13,6 +13,7 @@ The deploy stack is split across four tools:
 | IAM, buckets, Cloud Run skeleton, Artifact Registry, GitHub WIF | Terraform | [`deployment/terraform/`](../deployment/terraform/) |
 | Agent Runtime (ADK pipeline) | `agents-cli deploy` | `deployment_metadata.json` |
 | Auth broker image + revision | `make deploy-auth-broker` (shell + gcloud) | `deploy/auth_broker/deploy.sh` |
+| Prescription worker (Pub/Sub push) | `make deploy-prescription-worker` | `deploy/workers/deploy.sh` |
 | Flutter PWA | `firebase deploy --only hosting` | `firebase.json` |
 
 ## §0 Prerequisites
@@ -36,18 +37,19 @@ For a brand-new GCP project (e.g. `medication-companion-prod`).
 
 1. **Create + bill the project** (Console or `gcloud projects create`, link a billing account).
 2. **Enable Firebase** on the project (Firebase Console → Add project → reuse GCP project). Turn on Email/Password auth.
-3. **Generate Flutter Firebase config** for this env:
+3. **Enable Firestore** (Firebase Console → Firestore → Create database): **Native mode**, database ID **`(default)`**, location **`us-central1`**. Default private rules (no client read/write) are correct — job state is backend-only; Flutter polls `GET /jobs/{id}`.
+4. **Generate Flutter Firebase config** for this env:
    ```bash
    cd frontend && flutterfire configure --project=$GCP_PROJECT
    ```
-4. **Apply Terraform** (creates app SA, buckets, broker Cloud Run skeleton, Artifact Registry).
+5. **Apply Terraform** (creates app SA, buckets, broker + worker Cloud Run skeletons, Pub/Sub topics, Artifact Registry).
    - Single-project dev: `make infra-apply GCP_PROJECT=$GCP_PROJECT`
    - Multi-env (cicd module): `cd deployment/terraform/cicd && terraform apply` with `prod_project_id` / `staging_project_id` tfvars.
-5. **Upload `drugs.db`** once:
+6. **Upload `drugs.db`** once:
    ```bash
    gcloud storage cp data/drugs.db gs://$GCP_PROJECT-uploads/artifacts/drugs.db
    ```
-6. **BigQuery eval audit table** (async LLM-as-Judge scores from production runs).
+6. **BigQuery eval audit table** (LLM-as-Judge scores from production runs).
    Not created by Terraform today — run once per new GCP project:
    ```bash
    GCP_PROJECT=$GCP_PROJECT ./scripts/setup_eval_bigquery.sh
@@ -98,6 +100,54 @@ uv run python scripts/test_prescription.py "$RX_IMAGE" \
   --token "$FIREBASE_ID_TOKEN"
 ```
 
+## §2.1 Async prescription path (Pub/Sub + worker + Firestore)
+
+**Agent Runtime redeploy is not required** for this feature. Async only changes
+how the auth broker and worker invoke the **existing** Reasoning Engine
+(`run_prescription_pipeline` → `streamQuery`). There are no changes under
+`backend/agents/` or `backend/tools/` for Pub/Sub.
+
+You need a **working Agent Runtime already deployed** (§2 step 1) so
+`deployment_metadata.json` contains `remote_agent_runtime_id`. The worker and
+broker only need that ID in env — not a new `make deploy`.
+
+| Step | Command | Notes |
+|------|---------|-------|
+| 1. Infra (once) | `make infra-apply GCP_PROJECT=$GCP_PROJECT` | `pubsub.tf`: topic, push sub, worker skeleton, Firestore IAM |
+| 2. Firestore (once) | Console: `(default)`, `us-central1`, Native | See §1 step 3 |
+| 3. Broker + worker images | See below | No `make deploy` unless pipeline code changed |
+
+**First-time async rollout** (Agent Runtime already live, sync path still works):
+
+```bash
+export GCP_PROJECT=medication-companion-dev
+export GCP_REGION=us-central1
+
+# Infra + Firestore (once)
+make infra-apply GCP_PROJECT=$GCP_PROJECT
+
+# Deploy broker (ASYNC_PRESCRIPTION=false — sync default) + worker
+make deploy-async-backend GCP_PROJECT=$GCP_PROJECT GCP_REGION=$GCP_REGION
+```
+
+`deploy-async-backend` runs `deploy-auth-broker` then `deploy-prescription-worker`.
+Both scripts read `AGENT_RUNTIME_RESOURCE` from `deployment_metadata.json`.
+
+**Enable async responses** after smoke passes (`POST /prescription` → `202`, poll `GET /jobs/{id}`):
+
+```bash
+make deploy-auth-broker GCP_PROJECT=$GCP_PROJECT ASYNC_PRESCRIPTION=true
+```
+
+**After an Agent Runtime redeploy** (pipeline code changed — §4): run
+`make deploy && make deploy-auth-broker` as today, **plus**
+`make deploy-prescription-worker` so the worker gets the new runtime ID.
+
+**Local dev** (no Firestore/Pub/Sub): `make local-auth-broker` with
+`ASYNC_PRESCRIPTION=true JOB_STORE_BACKEND=memory PUBSUB_BACKEND=inline USE_LOCAL_RUNNER=true`.
+
+CI does not deploy the worker yet — manual steps above until cicd `pubsub.tf` lands.
+
 ## §3 Full frontend deploy (Flutter PWA + Firebase Hosting)
 
 ```bash
@@ -118,11 +168,12 @@ Pick the smallest command for what changed.
 
 | Change scope | Commands |
 |--------------|----------|
-| Agent pipeline (`backend/agents/`, `backend/tools/`, `backend/policy/`) | `make deploy && make deploy-auth-broker` |
+| Agent pipeline (`backend/agents/`, `backend/tools/`, `backend/policy/`) | `make deploy && make deploy-auth-broker` (+ `make deploy-prescription-worker` if async enabled) |
 | Auth broker only (`backend/auth_broker/`) | `make deploy-auth-broker` |
-| Both | `make deploy-backend` |
+| Async orchestration only (broker/worker, no pipeline change) | `make deploy-async-backend` — **no** `make deploy` |
+| Both pipeline + broker | `make deploy-backend` |
 | `drugs.db` / CSVs | Rebuild locally → `make deploy-prep && make deploy` |
-| Infra (new bucket, IAM, broker env var) | `make infra-apply` (single-project) or `terraform apply` in cicd — **not on every code push** |
+| Infra (Pub/Sub, worker skeleton, IAM) | `make infra-apply` (single-project) or `terraform apply` in cicd — **not on every code push** |
 
 The broker redeploy after an Agent Runtime update is required only when the
 runtime resource ID changes (`deployment_metadata.json`). For pure pipeline
@@ -150,8 +201,12 @@ No Agent Runtime or auth broker redeploy needed.
 |----------|-----------|---------|
 | `GCP_PROJECT` / `GCP_REGION` | Shell, Make, CI vars | All deploy commands |
 | `GCS_BUCKET` | Terraform → Cloud Run env | Auth broker signed URLs |
-| `AGENT_RUNTIME_RESOURCE` | `deployment_metadata.json` → `gcloud run deploy --update-env-vars` | Auth broker |
+| `AGENT_RUNTIME_RESOURCE` | `deployment_metadata.json` → broker + worker deploy scripts | Auth broker, prescription worker |
 | `FIREBASE_PROJECT_ID` | Terraform → Cloud Run env | Auth broker CORS |
+| `PUBSUB_TOPIC` | `deploy/auth_broker/deploy.sh` (default `prescription-jobs`) | Auth broker publish |
+| `FIRESTORE_PROJECT` | Deploy scripts (default `$GCP_PROJECT`) | Auth broker + worker job store |
+| `JOB_STORE_BACKEND` | Deploy scripts (`firestore` in prod) | Auth broker + worker |
+| `ASYNC_PRESCRIPTION` | `deploy-auth-broker` (default `false`; `ASYNC_PRESCRIPTION=true` to cut over) | Auth broker — `202` vs sync `200` |
 | `API_BASE_URL` | Flutter `--dart-define` | Flutter `ApiService` |
 | `ENVIRONMENT` | Flutter `--dart-define` + broker env | Both (toggles dev bypass) |
 | `BIGQUERY_DATASET` | Agent Runtime env (default `medication_companion`) | `backend/evaluation/llm_judge.py` → `eval_log` writes |
@@ -198,7 +253,10 @@ Use committed fixtures (`data/sample/smoke_4drug_2interactions.png`), not real p
 | `docker push` 403 / `failed to fetch anonymous token` | Docker not authenticated to Artifact Registry | `gcloud auth login` then `gcloud auth configure-docker us-central1-docker.pkg.dev --quiet`; re-run `make deploy-auth-broker` only (skip full `deploy-backend`). |
 | Browser → broker returns 403 | Auth broker still requires IAM auth (`--no-allow-unauthenticated`) | Firebase Hosting rewrites need public Cloud Run invoke. Re-run `make deploy-auth-broker` (uses `--allow-unauthenticated`; app still checks Firebase JWT). |
 | `/upload-url` returns 500 "signing failed" | `app_sa` lacks `iam.serviceAccountTokenCreator` self-binding | `make grant-tts-iam` or re-run `terraform apply`. |
-| `/prescription` returns 500 from Agent Runtime | Stale `AGENT_RUNTIME_RESOURCE` on broker after a new `agents-cli deploy` | `make deploy-auth-broker` (re-reads `deployment_metadata.json`). |
+| `/prescription` returns 500 from Agent Runtime | Stale `AGENT_RUNTIME_RESOURCE` on broker or worker after a new `agents-cli deploy` | `make deploy-auth-broker` and `make deploy-prescription-worker` (re-read `deployment_metadata.json`). |
+| `POST /prescription` returns `202` but job stays `pending` | Worker not deployed, Pub/Sub push 403, or missing IAM | `GCP_PROJECT=$GCP_PROJECT ./scripts/grant_pubsub_worker_push.sh`; check worker logs; DLQ topic `prescription-jobs-dlq`. Or `make infra-apply`. |
+| `GET /jobs/{id}` JSON parse error via Hosting URL | `/jobs/**` rewrite not deployed | `firebase deploy --only hosting --project $GCP_PROJECT` (see `firebase.json`). |
+| `GET /jobs/{id}` returns 404 | Wrong project, Firestore not enabled, or job owned by another patient | Confirm Firestore `(default)` in `us-central1`; JWT `patient_id` must match job doc. |
 | Agent 5 TTS audio missing | `-re` SA lacks signBlob on first deploy in a project | `make grant-tts-iam GCP_PROJECT=$GCP_PROJECT`. |
 | Flutter shows "Firebase not configured" | `firebase_options.dart` is still the stub | `cd frontend && flutterfire configure --project=$GCP_PROJECT`. |
 | `BigQuery write failed: Dataset …:medication_companion` | Eval audit dataset not provisioned in this project | `GCP_PROJECT=$GCP_PROJECT ./scripts/setup_eval_bigquery.sh` (see §1 step 6). |

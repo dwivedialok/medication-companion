@@ -260,8 +260,11 @@ def create_preload_patient_memory_callback(memory_service: Any):
     """ADK before_agent_callback on Agent 2 — load Memory Bank into session state."""
 
     async def preload_patient_memory(callback_context: CallbackContext) -> None:
+        raw_names = callback_context.state.get(EXTRACTED_RAW_NAMES_KEY, [])
+        search_terms = [str(name) for name in raw_names if str(name).strip()]
         visits = await memory_service.get_medications_for_patient(
-            callback_context.user_id
+            callback_context.user_id,
+            search_terms=search_terms,
         )
         prior = prior_generics_from_visits(visits)
         callback_context.state[PRIOR_VISIT_GENERICS_KEY] = sorted(prior)

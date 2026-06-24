@@ -1,0 +1,43 @@
+{
+  "session_id": "runtime-uLtiUvNhJpPAb14qjpOYOf9Dm133",
+  "resolved_drugs": [
+    {"raw_name": "Ecosprin", "generic_name": "aspirin", "drug_class": null, "tag": "NEW"},
+    {"raw_name": "Nise", "generic_name": "nimesulide", "drug_class": null, "tag": "NEW"},
+    {"raw_name": "Warf", "generic_name": "warfarin", "drug_class": null, "tag": "NEW"},
+    {"raw_name": "Flagyl", "generic_name": "metronidazole", "drug_class": null, "tag": "NEW"}
+  ],
+  "interactions": [
+    {
+      "drug_a": "aspirin",
+      "drug_b": "nimesulide",
+      "severity": "HIGH",
+      "mechanism": "Dataset records a high interaction between aspirin and nimesulide. Please discuss this with your doctor or pharmacist.",
+      "source": "current_visit"
+    },
+    {
+      "drug_a": "aspirin",
+      "drug_b": "warfarin",
+      "severity": "HIGH",
+      "mechanism": "Combined antiplatelet and anticoagulant therapy increases bleeding risk. Please discuss this with your doctor or pharmacist.",
+      "source": "current_visit"
+    },
+    {
+      "drug_a": "metronidazole",
+      "drug_b": "warfarin",
+      "severity": "HIGH",
+      "mechanism": "Dataset records a high interaction between metronidazole and warfarin. Please discuss this with your doctor or pharmacist.",
+      "source": "current_visit"
+    }
+  ],
+  "overall_severity": "HIGH",
+  "explanation_en": "The combination of medicines on your prescription may carry a serious bleeding risk. It is very important that you speak with your doctor before starting these medicines.",
+  "explanation_localised": "आपकी पर्ची में दी गई दवाओं के संयोजन में गंभीर ब्लीडिंग का जोखिम हो सकता है। एस्पिरिन और निमेसुलाइड को एक साथ लेने से पेट या आंतों से ब्लीडिंग का खतरा बढ़ सकता है। एस्पिरिन और वारफारिन का संयोजन खून को अधिक पतला कर सकता है, जिससे शरीर में कहीं भी गंभीर ब्लीडिंग होने की संभावना बढ़ जाती है। मेट्रोनिडाजोल दवा वारफारिन के असर को बढ़ा सकती है, जिससे ब्लीडिंग का खतरा और बढ़ जाता है। यह बहुत महत्वपूर्ण है कि आप इन दवाओं को शुरू करने से पहले अपने डॉक्टर से परामर्श करें।",
+  "audio_url": "https://storage.googleapis.com/medication-companion-uploads/audio/hi-IN/example.mp3",
+  "doctor_questions": [
+    "क्या इन दवाओं को एक साथ लेना सुरक्षित है या इनके कोई सुरक्षित विकल्प उपलब्ध हैं?",
+    "ब्लीडिंग (जैसे मसूड़ों से खून आना या गहरे रंग का मल) के संकेतों की पहचान कैसे करें?",
+    "क्या मुझे इन दवाओं के प्रभाव की निगरानी के लिए कोई विशेष रक्त परीक्षण करवाने की आवश्यकता है?"
+  ],
+  "disclaimer": "Please discuss this with your doctor or pharmacist before making any changes.",
+  "eval_scores": null
+}

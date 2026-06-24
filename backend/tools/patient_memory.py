@@ -18,7 +18,10 @@ from pipeline_output import (
     find_gate1_reject,
     find_safety_tool_result,
 )
-from tools.pipeline_state import generics_from_resolved_state
+from tools.pipeline_state import (
+    EXTRACTED_RAW_NAMES_KEY,
+    generics_from_resolved_state,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +42,15 @@ def create_patient_history_tool(
         Returns [] when the patient has no prior visits.
         """
         patient_id = tool_context.user_id
-        history = await memory_service.get_medications_for_patient(patient_id)
+        state = getattr(tool_context, "state", {}) or {}
+        search_terms = generics_from_resolved_state(state)
+        if not search_terms:
+            raw_names = state.get(EXTRACTED_RAW_NAMES_KEY, [])
+            search_terms = [str(name) for name in raw_names if str(name).strip()]
+        history = await memory_service.get_medications_for_patient(
+            patient_id,
+            search_terms=search_terms,
+        )
         logger.info(
             "Loaded %d prior visit(s) from memory for patient %s",
             len(history),

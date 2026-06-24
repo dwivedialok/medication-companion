@@ -21,6 +21,7 @@ class _UploadScreenState extends State<UploadScreen> {
   XFile? _pickedFile;
   bool _loading = false;
   int _stepIndex = 0;
+  String? _statusMessage;
   String? _errorMessage;
   bool _retakeNeeded = false;
 
@@ -29,6 +30,12 @@ class _UploadScreenState extends State<UploadScreen> {
     'Checking interactions...',
     'Generating explanation...',
   ];
+
+  static const _asyncStatusLabels = {
+    'pending': 'Queued for analysis...',
+    'processing': 'Analysing prescription...',
+    'done': 'Preparing your results...',
+  };
 
   Future<void> _pickImage(ImageSource source) async {
     try {
@@ -54,11 +61,12 @@ class _UploadScreenState extends State<UploadScreen> {
     setState(() {
       _loading = true;
       _stepIndex = 0;
+      _statusMessage = null;
       _errorMessage = null;
       _retakeNeeded = false;
     });
 
-    // Advance step indicator every ~5 seconds while the pipeline runs
+    // Cosmetic step animation for sync path; async uses onJobStatus labels.
     final stepTimer = _runStepAnimation();
 
     try {
@@ -70,6 +78,15 @@ class _UploadScreenState extends State<UploadScreen> {
             mimeType: mimeType,
             language: widget.language,
             fileName: _pickedFile!.name,
+            onJobStatus: (status) {
+              if (!mounted) return;
+              setState(() {
+                _statusMessage = _asyncStatusLabels[status];
+                if (status == 'processing') {
+                  _stepIndex = 1;
+                }
+              });
+            },
           );
 
       stepTimer.cancel();
@@ -261,7 +278,7 @@ class _UploadScreenState extends State<UploadScreen> {
         const CircularProgressIndicator(),
         const SizedBox(height: 32),
         Text(
-          _steps[_stepIndex],
+          _statusMessage ?? _steps[_stepIndex],
           style: theme.textTheme.titleMedium,
           textAlign: TextAlign.center,
         ),

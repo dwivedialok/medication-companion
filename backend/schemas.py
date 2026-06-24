@@ -39,3 +39,24 @@ class PrescriptionResult(BaseModel):
     doctor_questions: list[str]
     disclaimer: str
     eval_scores: EvalScores | None = None
+
+
+class JobError(BaseModel):
+    code: Literal["gate1_reject", "pipeline_error", "internal_error"]
+    message: str
+    reason: str | None = None
+
+
+class PrescriptionJobStatus(BaseModel):
+    job_id: str
+    patient_id: str
+    status: Literal["pending", "processing", "done", "failed"]
+    created_at: str
+    updated_at: str
+    result: PrescriptionResult | None = None
+    error: JobError | None = None
+
+
+class PrescriptionJobEnqueueResponse(BaseModel):
+    job_id: str
+    status: Literal["pending"] = "pending"

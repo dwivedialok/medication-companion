@@ -1,3 +1,8 @@
+---
+name: Onboard a new Indian language
+description: Workflow for adding a regional language to Agent 5 localisation + TTS.
+---
+
 # Skill: Onboard a new Indian language
 
 Workflow for adding a regional language to Agent 5 localisation + TTS.
@@ -9,16 +14,16 @@ Workflow for adding a regional language to Agent 5 localisation + TTS.
 
 ## Steps
 
-1. **Update the language schema** — [specs/schemas/language_map.yaml](../../specs/schemas/language_map.yaml):
+1. **Update the language schema** — [specs/schemas/language_map.yaml](../../../specs/schemas/language_map.yaml):
    - Add BCP-47 code (e.g. `ml-IN` for Malayalam)
    - Set `tts_voice` from [GCP TTS voice list](https://cloud.google.com/text-to-speech/docs/voices)
    - Add `severity_tone_phrases` for each severity level
    - Add `disclaimer_translation` (must preserve consult-your-doctor meaning)
 
-2. **Register TTS voice** — [backend/tools/tts.py](../../backend/tools/tts.py):
+2. **Register TTS voice** — [backend/tools/tts.py](../../../backend/tools/tts.py):
    - Add entry to `_VOICE_MAP`
 
-3. **Update Agent 5 instruction** — [backend/agents/agent5_localisation.py](../../backend/agents/agent5_localisation.py):
+3. **Update Agent 5 instruction** — [backend/agents/agent5_localisation.py](../../../backend/agents/agent5_localisation.py):
    - List the new code in supported languages
    - After Step 3: use `[[PATIENT_LANGUAGE]]` / `[[DISCLAIMER]]` via ContextResolver
 
