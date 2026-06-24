@@ -1,0 +1,119 @@
+{
+  "@@locale": "en",
+  "appTitle": "Medication Companion",
+  "appSubtitle": "AI-powered prescription analysis",
+  "appLanguage": "App language",
+  "continueDevMode": "Continue in dev mode",
+  "devModeHint": "ENVIRONMENT=local — Firebase auth bypassed",
+  "orSignInFirebase": "or sign in with Firebase",
+  "signIn": "Sign in",
+  "createAccount": "Create account",
+  "email": "Email",
+  "emailInvalid": "Enter a valid email address",
+  "password": "Password",
+  "confirmPassword": "Confirm password",
+  "passwordMinLength": "Use at least 6 characters",
+  "passwordsDoNotMatch": "Passwords do not match",
+  "passwordStrengthHint": "Use 8+ characters with upper & lower case, numbers, and symbols",
+  "passwordStrengthWeak": "Weak",
+  "passwordStrengthFair": "Fair",
+  "passwordStrengthGood": "Good",
+  "passwordStrengthStrong": "Strong",
+  "showPassword": "Show password",
+  "hidePassword": "Hide password",
+  "createAccountDisclaimer": "This app provides information only. Always discuss medications with your doctor or pharmacist.",
+  "errorInvalidEmail": "Invalid email address.",
+  "errorWrongPassword": "Incorrect email or password.",
+  "errorUserNotFound": "No account found for this email.",
+  "errorEmailInUse": "An account already exists for this email. Try signing in.",
+  "errorWeakPassword": "Password must be at least 6 characters.",
+  "errorGeneric": "Something went wrong. Please try again.",
+  "hello": "Hello, {name}",
+  "@hello": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "readyToAnalyse": "Ready to analyse your prescription?",
+  "audioLanguage": "Audio language",
+  "disclaimerHome": "This app is for information only. Always discuss your medications with your doctor or pharmacist.",
+  "analysePrescription": "Analyse prescription",
+  "signOut": "Sign out",
+  "scanPrescription": "Scan prescription",
+  "tapGallery": "Tap to select from gallery",
+  "camera": "Camera",
+  "gallery": "Gallery",
+  "retakePhoto": "Retake photo",
+  "stepReading": "Reading prescription...",
+  "stepChecking": "Checking interactions...",
+  "stepGenerating": "Generating explanation...",
+  "statusPending": "Queued for analysis...",
+  "statusProcessing": "Analysing prescription...",
+  "statusDone": "Preparing your results...",
+  "loadingHint": "This takes about 20–40 seconds.\nPlease keep this screen open.",
+  "accessError": "Could not access camera or gallery: {error}",
+  "@accessError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "prescriptionAnalysis": "Prescription Analysis",
+  "medicationsFound": "Medications found ({count})",
+  "@medicationsFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "interactions": "Interactions ({count})",
+  "@interactions": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "summary": "Summary",
+  "audioExplanation": "Audio explanation",
+  "playing": "Playing...",
+  "tapToPlay": "Tap to play audio explanation",
+  "doctorQuestions": "Questions for your doctor",
+  "backToHome": "Back to home",
+  "severityHigh": "High severity — review urgently with your doctor",
+  "severityModerate": "Moderate severity — discuss with your doctor",
+  "severityLow": "Low severity — informational",
+  "severityInfo": "No interactions found",
+  "severityNone": "No concerns identified",
+  "couldNotResolve": "Could not be resolved",
+  "crossVisitDetected": "Detected from your medication history",
+  "tagNew": "NEW",
+  "tagExisting": "EXISTING",
+  "tagUnresolved": "UNRESOLVED",
+  "sevChipHigh": "HIGH",
+  "sevChipModerate": "MODERATE",
+  "sevChipLow": "LOW",
+  "sevChipInfo": "INFO",
+  "sevChipNone": "NONE",
+  "sevWordHigh": "high",
+  "sevWordModerate": "moderate",
+  "sevWordLow": "low",
+  "mechanismDataset": "Dataset records a {severityWord} interaction between {a} and {b}. Please discuss this with your doctor or pharmacist.",
+  "@mechanismDataset": {
+    "placeholders": {
+      "severityWord": { "type": "String" },
+      "a": { "type": "String" },
+      "b": { "type": "String" }
+    }
+  },
+  "shownInEnglishNote": "(shown in English)",
+  "langEnglish": "English",
+  "langHindi": "Hindi",
+  "langTamil": "Tamil",
+  "langTelugu": "Telugu",
+  "langBengali": "Bengali"
+}

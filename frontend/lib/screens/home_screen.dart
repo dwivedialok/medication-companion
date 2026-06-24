@@ -3,41 +3,28 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../auth/firebase_auth_service.dart';
+import '../l10n/app_localizations.dart';
+import '../providers/locale_provider.dart';
+import '../widgets/language_selector.dart';
 
-const _languages = {
-  'en-IN': 'English',
-  'hi-IN': 'Hindi',
-  'ta-IN': 'Tamil',
-  'te-IN': 'Telugu',
-  'bn-IN': 'Bengali',
-};
-
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
-
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  String _selectedLanguage = 'en-IN';
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<FirebaseAuthService>();
+    final localeProvider = context.watch<LocaleProvider>();
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Medication Companion'),
+        title: Text(l10n.appTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            tooltip: 'Sign out',
-            onPressed: () async {
-              await auth.signOut();
-              if (context.mounted) context.go('/login');
-            },
+            tooltip: l10n.signOut,
+            onPressed: () => auth.signOut(),
           ),
         ],
       ),
@@ -47,7 +34,6 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Greeting card
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
@@ -67,13 +53,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Hello, ${auth.displayName}',
+                              l10n.hello(auth.displayName),
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             Text(
-                              'Ready to analyse your prescription?',
+                              l10n.readyToAnalyse,
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
@@ -87,7 +73,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Language selector
               Card(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -95,20 +80,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Icon(Icons.language, color: theme.colorScheme.primary),
                       const SizedBox(width: 12),
-                      const Text('Audio language'),
-                      const Spacer(),
-                      DropdownButton<String>(
-                        value: _selectedLanguage,
-                        underline: const SizedBox.shrink(),
-                        items: _languages.entries
-                            .map((e) => DropdownMenuItem(
-                                  value: e.key,
-                                  child: Text(e.value),
-                                ))
-                            .toList(),
-                        onChanged: (v) {
-                          if (v != null) setState(() => _selectedLanguage = v);
-                        },
+                      Expanded(
+                        child: Text(l10n.audioLanguage),
+                      ),
+                      SizedBox(
+                        width: 120,
+                        child: LanguageSelector(compact: true),
                       ),
                     ],
                   ),
@@ -116,7 +93,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 32),
 
-              // Disclaimer reminder
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -131,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'This app is for information only. Always discuss your medications with your doctor or pharmacist.',
+                        l10n.disclaimerHome,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -143,14 +119,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const Spacer(),
 
-              // Main CTA
               FilledButton.icon(
                 onPressed: () => context.go(
                   '/upload',
-                  extra: {'language': _selectedLanguage},
+                  extra: {'language': localeProvider.languageCode},
                 ),
                 icon: const Icon(Icons.document_scanner),
-                label: const Text('Analyse prescription'),
+                label: Text(l10n.analysePrescription),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 18),
                   textStyle: const TextStyle(fontSize: 16),

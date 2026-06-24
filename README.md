@@ -1,106 +1,58 @@
 # 💊 Medication Companion
 
-> **Kaggle 5-Day AI Agents Intensive 2026 — Capstone Project**  
-> A multi-agent AI system that helps patients in India understand prescriptions and stay safe across multiple visits and multiple doctors.
+> A multi-agent AI system that helps patients in India understand their prescriptions
+> and stay safe across multiple visits and multiple doctors.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev)
-[![Google ADK](https://img.shields.io/badge/Google%20ADK-latest-4285F4)](https://google.github.io/adk-docs/)
-[![GCP](https://img.shields.io/badge/GCP-Cloud%20Run-orange)](https://cloud.google.com/run)
+[![Google ADK](https://img.shields.io/badge/Google%20ADK-2.x-4285F4)](https://google.github.io/adk-docs/)
+[![Gemini](https://img.shields.io/badge/Gemini-3.1%20Flash%20Lite-1a73e8)](https://ai.google.dev/)
+[![GCP](https://img.shields.io/badge/GCP-Cloud%20Run%20%2B%20Vertex%20AI-orange)](https://cloud.google.com/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+---
+
+## Table of contents
+
+- [What it does](#what-it-does)
+- [Architecture](#architecture)
+- [Repository layout](#repository-layout)
+- [Quick start](#quick-start-local-development)
+- [Drug data sources](#drug-data-sources)
+- [Deployment](#deployment)
+- [Specs and instruction hierarchy](#specs-and-instruction-hierarchy)
+- [Key design decisions](#key-design-decisions)
+- [Out of scope](#out-of-scope)
+- [Contributing](#contributing)
+- [Security](#security)
+- [Acknowledgements](#acknowledgements)
+- [Disclaimer](#disclaimer)
+- [License](#license)
 
 ---
 
 ## What it does
 
-A patient photographs their prescription. The system:
+A patient photographs their prescription. The system runs a five-agent pipeline:
 
-1. **Reads** the prescription image — extracts drug names using Gemini Vision (Agent 1)
-2. **Resolves** brand → generic names, splits fixed-dose combinations (Agent 2)
-3. **Checks safety** — flags interactions against current AND past medications from memory (Agent 3)
-4. **Explains** the findings in plain, calibrated language appropriate to severity (Agent 4)
-5. **Localises** the explanation into the patient's language and generates audio (Agent 5, via A2A)
+1. **Reads** the image — extracts drug names with Gemini Vision (`prescription_reader`)
+2. **Resolves** brand → generic names and splits fixed-dose combinations (`medication_resolver`)
+3. **Checks safety** — flags interactions against the patient's current *and* past medications via cross-visit memory (`reconciliation_safety`)
+4. **Explains** the findings in plain, severity-calibrated language (`patient_education`)
+5. **Localises** the explanation into the patient's preferred language and synthesises audio (`localisation_audio`)
 
-> ⚠️ **This is not a medical device.** Every output directs the patient back to their doctor or pharmacist. This is an educational prototype, not a substitute for professional medical advice.
+> ⚠️ **This is not a medical device.** Every output directs the patient back to their doctor or pharmacist. It is an educational prototype, not a substitute for professional medical advice.
 
 ---
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        Flutter PWA (Firebase Hosting)                │
-│  Login → Upload Prescription → View Results + Audio Player           │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │ POST /agent/run  (Firebase Auth JWT)
-┌──────────────────────────────▼──────────────────────────────────────┐
-│              Cloud Run: medication-companion (FastAPI + ADK)          │
-│                                                                       │
-│  Guard ──► Agent 1 ──► Agent 2 ──► Agent 3 ──► Agent 4 ──► Guard    │
-│  (Input)   (Reader)   (Resolver)  (Safety)   (Education)  (Output)  │
-│                │           │          │                               │
-│                │    FunctionTools  MemoryBank                        │
-│                │    RxNav API      VertexAI Session                  │
-│                └──────────────────────────────────────┐              │
-└──────────────────────────────────────────────────────┼──────────────┘
-                                                        │ A2A Protocol
-┌──────────────────────────────────────────────────────▼──────────────┐
-│              Cloud Run: medication-companion-a2a (Agent 5)            │
-│              Localisation + Text-to-Speech → GCS MP3 → Signed URL    │
-└─────────────────────────────────────────────────────────────────────┘
-```
+![Medication Companion — system architecture](docs/architecture.png)
 
-**GCP Services:** Cloud Run · Vertex AI Agent Engine · Cloud Storage · Cloud Text-to-Speech · BigQuery · Firebase Auth · Firebase Hosting · Cloud Trace
+**GCP services used:** Cloud Run · Vertex AI Agent Engine · Vertex AI Memory Bank · Cloud Storage · Cloud Text-to-Speech · Pub/Sub · BigQuery · Firebase Auth · Firebase Hosting · Cloud Trace · Cloud Logging.
 
----
-
-## Course alignment (2026 Kaggle AI Agents Intensive)
-
-| Day | Topic | Where it appears |
-|-----|-------|-----------------|
-| **Day 1** | Agents & Vibe Coding | Multi-agent pipeline; autonomous Gate 1 rejection in Agent 1; `.cursor/rules/` spec-driven generation |
-| **Day 2** | Tools & Interoperability (MCP + A2A) | `FunctionTool`s in Agent 2 (RxNav, combo-splitter); Agent 5 as independent A2A service with Agent Card |
-| **Day 3** | Context Engineering (Memory & Sessions) | `VertexAiSessionService` carries session state; `VertexAiMemoryBankService` stores cross-visit drug history |
-| **Day 4** | Agent Quality (Guardrails + Eval) | Input/output guardrail callbacks; LLM-as-Judge scorer writing to BigQuery |
-| **Day 5** | Spec-Driven Production Development | `.cursor/rules/medication-companion.mdc`; two Cloud Run services; Cloud Trace; `deploy/deploy.sh` |
-
----
-
-## Quick start (local development)
-
-### Prerequisites
-
-- Python 3.11+
-- Flutter 3.x
-- Google Cloud SDK (`gcloud`)
-- A GCP project with billing enabled
-
-### Backend (agents, no GCP credentials needed)
-
-```bash
-cd backend
-pip install -r requirements.txt
-
-# Run with in-memory session/memory backend (no GCP needed)
-MEMORY_BACKEND=local GEMINI_MODEL=gemini-3.5-flash python -m uvicorn main:app --reload
-```
-
-### Kaggle notebook (demo)
-
-Open `notebooks/medication_companion_demo.ipynb` — runs all 5 agents with `InMemorySessionService`, no GCP credentials required.
-
-### Full GCP deployment
-
-```bash
-# 1. Set your project
-gcloud config set project YOUR_PROJECT_ID
-
-# 2. Create all GCP resources (one-time setup)
-./scripts/setup_gcp.sh
-
-# 3. Deploy both Cloud Run services + Firebase Hosting
-./deploy/deploy.sh
-```
+Agent-level pipeline flow, session state, memory, and security details are in [`docs/architecture.md`](docs/architecture.md). Operational deploy steps are in [`docs/deployment_runbook.md`](docs/deployment_runbook.md).
 
 ---
 
@@ -108,62 +60,63 @@ gcloud config set project YOUR_PROJECT_ID
 
 ```
 medication-companion/
-├── backend/                        # Python — ADK agents + FastAPI
-│   ├── agents/
-│   │   ├── agent1_reader.py        # Prescription Reader (Gemini Vision)
-│   │   ├── agent2_resolver.py      # Medication Resolver (RxNav + India CSV)
-│   │   ├── agent3_safety.py        # Reconciliation + Safety (core value)
-│   │   ├── agent4_education.py     # Patient Education
-│   │   └── agent5_localisation.py  # Localisation + Audio (A2A server)
-│   ├── tools/
-│   │   ├── drug_lookup.py          # FunctionTool: brand → generic (RxNav)
-│   │   ├── combo_splitter.py       # FunctionTool: split combination drugs
-│   │   ├── tts.py                  # FunctionTool: GCP Text-to-Speech
-│   │   └── guardrails.py           # Input/output safety callbacks (Day 4)
-│   ├── memory/
-│   │   ├── session_service.py      # ADK VertexAiSessionService wrapper
-│   │   └── memory_service.py       # ADK VertexAiMemoryBankService wrapper
-│   ├── evaluation/
-│   │   └── llm_judge.py            # LLM-as-Judge scorer → BigQuery (Day 4)
-│   ├── tests/                      # pytest unit + integration tests
-│   ├── main.py                     # FastAPI app (get_fast_api_app)
-│   ├── a2a_server.py               # Agent 5 A2A service entry point
-│   ├── Dockerfile
-│   ├── Dockerfile.a2a
-│   └── requirements.txt
-├── frontend/                       # Flutter PWA
+├── backend/                          # Python — ADK agents, tools, runtime
+│   ├── agents/                       # One agent per file
+│   │   ├── agent1_reader.py          # Prescription Reader (Gemini Vision)
+│   │   ├── agent2_resolver.py       # Medication Resolver (SQLite + RxNav)
+│   │   ├── agent3_safety.py         # Reconciliation + Safety
+│   │   ├── agent4_education.py      # Patient Education
+│   │   ├── agent5_localisation.py   # Localisation + TTS audio
+│   │   └── GEMINI.md                 # Per-agent model selection / overrides
+│   ├── tools/                        # FunctionTools (leaf nodes, fully typed)
+│   │   ├── drug_lookup.py            # Brand → generic (CSV → SQLite → RxNav)
+│   │   ├── interaction_lookup.py     # Severity from interactions table
+│   │   ├── combo_splitter.py         # Fixed-dose combination splitter
+│   │   ├── safety_check.py           # Pair-wise interaction scan
+│   │   ├── patient_memory.py         # Memory Bank read/write
+│   │   ├── tts.py                    # Cloud Text-to-Speech
+│   │   └── guardrails.py             # Input/output safety callbacks
+│   ├── memory/                       # Session + Memory Bank wrappers
+│   ├── evaluation/                   # LLM-as-Judge scorer (async → BigQuery)
+│   ├── auth_broker/                  # Public HTTP API (Firebase JWT)
+│   ├── workers/                      # Pub/Sub push worker (async path)
+│   ├── policy/                       # Output policy gates
+│   ├── agent_runtime_app.py          # Vertex AI Agent Runtime entry point
+│   ├── agent.py                      # SequentialAgent assembly
+│   └── tests/                        # pytest unit + integration suites
+├── frontend/                         # Flutter PWA
 │   ├── lib/
-│   │   ├── auth/                   # Firebase Auth
-│   │   ├── screens/                # Login, Home, Upload, Result
-│   │   ├── services/               # API service (attaches JWT)
-│   │   └── models/                 # PrescriptionResult model
-│   ├── web/
-│   │   └── index.html              # PWA manifest + service worker
+│   │   ├── auth/                     # Firebase Auth
+│   │   ├── screens/                  # Login, Upload, Result
+│   │   ├── services/                 # API client (attaches Firebase JWT)
+│   │   ├── l10n/                     # ARB files (en, hi, bn, ta, te)
+│   │   └── models/                   # Pipeline result models
 │   └── pubspec.yaml
-├── deploy/
-│   ├── deploy.sh                   # Full deployment (Cloud Run + Firebase)
-│   └── firestore.rules
-├── scripts/
-│   ├── setup_gcp.sh                # One-time GCP project setup + resource creation
-│   └── teardown_gcp.sh             # Clean up all GCP resources
+├── specs/                            # Source-of-truth behavioural specs
+│   ├── pipeline.feature              # Gherkin scenarios
+│   ├── safety_refusal.feature
+│   ├── agent_boundaries.yaml         # Per-agent I/O + forbidden actions
+│   └── schemas/                      # Flat YAML schemas
 ├── data/
-│   └── india_brands.csv            # 200+ Indian brand → generic mappings
+│   ├── india_brands.csv              # Curated brand → generic (committed)
+│   ├── curated_interactions.csv      # Curated interaction overrides (committed)
+│   ├── drugs.db                      # Built SQLite index (committed, ~60 MB)
+│   └── *.csv                         # Kaggle sources — download separately (see below)
+├── scripts/                          # Build, setup, ops helpers
+│   ├── build_drug_index.py           # Rebuild drugs.db from sources
+│   ├── setup_gcp.sh                  # One-time GCP project setup
+│   └── teardown_gcp.sh
+├── deploy/
+│   ├── auth_broker/                  # Auth-broker Cloud Run image
+│   ├── workers/                      # Pub/Sub worker Cloud Run image
+│   └── deploy.sh
 ├── notebooks/
-│   └── medication_companion_demo.ipynb  # Kaggle submission notebook
-├── docs/
-│   ├── architecture.md             # Detailed architecture decisions
-│   ├── agent_design.md             # Per-agent spec and boundaries
-│   └── out_of_scope.md             # Explicit scope decisions for judges
-├── .cursor/
-│   └── rules/
-│       └── medication-companion.mdc  # Spec-driven development rules (Day 5)
-├── .github/
-│   ├── workflows/
-│   │   ├── ci.yml                  # Lint + test on PR
-│   │   └── deploy.yml              # Deploy on merge to main
-│   └── ISSUE_TEMPLATE/
-│       ├── bug_report.md
-│       └── feature_request.md
+│   └── medication_companion_demo.ipynb   # End-to-end demo notebook
+├── docs/                             # Architecture, runbook, backlog, etc.
+├── .agent/skills/                    # Reusable agent-workflow skills
+├── .github/workflows/                # CI + deploy pipelines
+├── AGENTS.md                         # Project DNA for coding agents
+├── Makefile
 ├── CONTRIBUTING.md
 ├── CODE_OF_CONDUCT.md
 ├── SECURITY.md
@@ -173,28 +126,208 @@ medication-companion/
 
 ---
 
-## Key design decisions
+## Quick start (local development)
 
-**LLM calls are minimal by design.** Agents 1, 3, 4, 5 are LLM agents. Agent 2 uses deterministic tool calls (RxNav API + CSV). Guardrails run as callbacks, not inside agent prompts. LLM-as-Judge runs async after the response — it never blocks the patient.
+### Prerequisites
 
-**Agent 5 is a separate service (A2A) by design.** Localisation is genuinely independent — it could be replaced with a specialist translation service without touching Agents 1–4. This is not over-engineering; it demonstrates the Day 2 A2A protocol deliberately.
+- Python 3.11+ (project uses `uv` for dependency management)
+- Flutter 3.x (only required for frontend work)
+- Google Cloud SDK (`gcloud`) — only required for deploys
+- A GCP project with billing enabled — only required for Vertex AI / Memory Bank
 
-**Memory stores drug names, not prescriptions.** `VertexAiMemoryBankService` stores resolved generic names + visit timestamp + severity summary. It never stores: prescription images, clinical notes, diagnosis text, raw LLM output.
+### 1. Run the agent pipeline in-process
+
+No GCP credentials required. Uses `InMemorySessionService` and the committed
+SQLite drug index.
+
+```bash
+cd backend
+cp ../.env.example .env.local         # set MEMORY_BACKEND=local
+uv sync
+uv run pytest tests/unit tests/integration
+```
+
+### 2. Run the auth broker + local pipeline
+
+Runs the HTTP auth broker against a local in-process pipeline (`USE_LOCAL_RUNNER=true`),
+with real GCS for image uploads.
+
+```bash
+make local-auth-broker      # http://localhost:8080
+```
+
+### 3. Try the demo notebook
+
+```bash
+jupyter notebook notebooks/medication_companion_demo.ipynb
+```
+
+The notebook runs all five agents end-to-end with no GCP credentials required.
+
+### 4. Build the drug index (optional)
+
+Only needed if you change a source CSV or want to rebuild from the Kaggle
+datasets. The committed `data/drugs.db` is sufficient for development.
+
+```bash
+python scripts/build_drug_index.py
+```
+
+See [Drug data sources](#drug-data-sources) for download links and
+[`AGENTS.md`](AGENTS.md#drug-data-sources) for the lookup-tier contract.
 
 ---
 
-## Out of scope (explicit — judges value clear boundaries)
+## Drug data sources
 
-See [`docs/out_of_scope.md`](docs/out_of_scope.md) for the full list. Key exclusions: clinical interaction database (LLM pharmacological knowledge is used — acceptable for POC), dose adjustment advice, doctor-facing interface, clinical trial matching.
+`data/drugs.db` is built by [`scripts/build_drug_index.py`](scripts/build_drug_index.py)
+from curated CSVs (committed) plus three Kaggle datasets (not committed).
+Drop the Kaggle CSVs into `data/` and run the build script to regenerate the index.
+
+### Curated (committed)
+
+| File | Purpose |
+|------|---------|
+| [`data/india_brands.csv`](data/india_brands.csv) | Hand-maintained brand → generic mappings (~300 rows; highest lookup priority) |
+| [`data/curated_interactions.csv`](data/curated_interactions.csv) | Hand-maintained interaction overrides (wins over Kaggle data on collision) |
+
+### Kaggle (download required)
+
+| Save as | Dataset | Role |
+|---------|---------|------|
+| `medicine_data.csv` | [Indian Medicine Data](https://kaggle.com/datasets/mohneesh7/indian-medicine-data) | Primary drug-interaction source |
+| `Extensive_A_Z_medicines_dataset_of_India.csv` | [Extensive A–Z Medicines Dataset of India](https://kaggle.com/datasets/riturajsingh2004/extensive-a-z-medicines-dataset-of-india) | ~250k Indian brand names |
+| `all_medicine databased.csv` | [All India Drug Bank Database](https://kaggle.com/datasets/ankushpoddar/all-india-drug-bank-database) | Fallback brand metadata |
+
+The committed `data/drugs.db` (~60 MB) is enough for local development without
+downloading the Kaggle CSVs.
+
+---
+
+## Deployment
+
+Full operational instructions — including IAM, secrets, incremental updates,
+and rollback — live in [`docs/deployment_runbook.md`](docs/deployment_runbook.md).
+
+The high-level flow:
+
+```bash
+gcloud config set project YOUR_PROJECT_ID
+
+./scripts/setup_gcp.sh             # one-time: APIs, GCS, Pub/Sub, IAM
+make deploy-backend                # Agent Runtime + auth broker + worker
+make deploy-frontend               # Flutter web → Firebase Hosting
+```
+
+> **Security:** only the auth broker is publicly invokable. Agent Runtime and
+> the Pub/Sub worker stay private and are reached via service-account
+> credentials. `patient_id` is always derived from the verified Firebase JWT.
+
+---
+
+## Specs and instruction hierarchy
+
+The project follows a layered, spec-driven workflow. Layers are checked from
+most-specific to least-specific:
+
+| Layer | Location | Purpose |
+|-------|----------|---------|
+| Chat | Current coding-agent session | Short-lived task orchestration |
+| Specs | [`specs/`](specs/) | Gherkin scenarios + flat YAML schemas (source of truth) |
+| Agent skills | [`.agent/skills/`](.agent/skills/) | Reusable feature workflows |
+| Model overrides | [`backend/agents/GEMINI.md`](backend/agents/GEMINI.md) | Per-agent Gemini config |
+| Project DNA | [`AGENTS.md`](AGENTS.md) | Hard rules (non-negotiable) |
+
+When behaviour changes, update [`specs/`](specs/) **before** generating code,
+then write a test under `backend/tests/` before the implementation. See
+[`AGENTS.md`](AGENTS.md#adding-a-new-feature) for the full workflow and
+[`specs/README.md`](specs/README.md) for the spec → test mapping.
+
+---
+
+## Key design decisions
+
+- **LLM calls are minimal by design.** Agents 1, 3, 4, 5 are LLM agents.
+  Agent 2 uses deterministic tool calls (curated CSV → SQLite FTS → fuzzy
+  match → RxNav). Guardrails run as callbacks, not inside agent prompts.
+  LLM-as-Judge scoring runs asynchronously after the response — it never
+  blocks the patient.
+
+- **Memory stores resolved drug names, not prescriptions.** Vertex AI Memory
+  Bank stores generic names, visit timestamp, and severity summary only.
+  It never stores prescription images, clinical notes, diagnoses, or raw
+  model output.
+
+- **The auth broker is the only public surface.** Agent Runtime is private
+  and only reachable via service-account credentials. Images travel client
+  → GCS signed URL → Agent 1 (`Part.from_uri`), never through the broker
+  payload.
+
+- **Drug data is built, not hard-coded.** Lookup goes through five
+  deterministic tiers before falling back to RxNav; see
+  [`AGENTS.md`](AGENTS.md#drug-data-sources). Quality is gated by
+  `backend/tests/test_drug_lookup_eval.py`.
+
+- **Agent boundaries are explicit.** Each agent's inputs, outputs, and
+  forbidden actions are declared in
+  [`specs/agent_boundaries.yaml`](specs/agent_boundaries.yaml). Tools are
+  leaf nodes — they never call other agents.
+
+---
+
+## Out of scope
+
+See [`docs/out_of_scope.md`](docs/out_of_scope.md) for the full list. Notable
+exclusions: a clinical interaction database (LLM pharmacological knowledge is
+used today as an acceptable POC tradeoff), dose-adjustment advice, a
+doctor-facing interface, and clinical-trial matching.
+
+---
+
+## Contributing
+
+Contributions are welcome. Please read [`CONTRIBUTING.md`](CONTRIBUTING.md)
+and our [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) first.
+
+Before opening a PR:
+
+1. Update [`specs/`](specs/) if you are changing behaviour.
+2. Update [`AGENTS.md`](AGENTS.md) if you are changing a rule or boundary.
+3. Add or update tests under `backend/tests/`.
+4. Run `uv run pytest tests/unit tests/integration` — all tests must pass.
+
+For production-incident debugging, use the evidence-driven templates in
+[`docs/forensic_prompts.md`](docs/forensic_prompts.md).
+
+---
+
+## Security
+
+Please **do not** open public issues for security vulnerabilities. Follow the
+disclosure process in [`SECURITY.md`](SECURITY.md).
+
+---
+
+## Acknowledgements
+
+This project began as a capstone for the 2026 Kaggle 5-Day AI Agents Intensive.
+It builds on:
+
+- [Google Agent Development Kit (ADK)](https://google.github.io/adk-docs/)
+- [Google Gemini](https://ai.google.dev/) (3.1 Flash / Flash Lite)
+- [RxNav / RxNorm](https://lhncbc.nlm.nih.gov/RxNav/) for fallback drug normalisation
+- Indian medicine datasets on Kaggle — [Indian Medicine Data](https://kaggle.com/datasets/mohneesh7/indian-medicine-data), [Extensive A–Z Medicines Dataset of India](https://kaggle.com/datasets/riturajsingh2004/extensive-a-z-medicines-dataset-of-india), [All India Drug Bank Database](https://kaggle.com/datasets/ankushpoddar/all-india-drug-bank-database) (see [Drug data sources](#drug-data-sources))
 
 ---
 
 ## Disclaimer
 
-This is an educational prototype built for the Kaggle 5-Day AI Agents Intensive 2026. It is **not a medical device**, **not a substitute for pharmacist or doctor advice**, and has **not been clinically validated**. Do not use for real medical decisions.
+This is an **educational prototype**. It is **not a medical device**, **not a
+substitute for pharmacist or doctor advice**, and **has not been clinically
+validated**. Do not use it for real medical decisions.
 
 ---
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+[MIT](LICENSE)
