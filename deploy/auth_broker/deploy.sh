@@ -7,7 +7,7 @@
 # FIREBASE_PROJECT_ID). This script only updates:
 #   - the container image
 #   - AGENT_RUNTIME_RESOURCE env var (read from deployment_metadata.json)
-#   - async prescription env vars (Pub/Sub + Firestore; ASYNC_PRESCRIPTION defaults false)
+#   - Pub/Sub + Firestore env vars (the /prescription path is always async)
 #
 # Prerequisites:
 #   - `terraform apply` ran (single-project: make infra-apply, or cicd module)
@@ -29,7 +29,6 @@ APP_SA="${APP_SA:-medication-companion-app@${GCP_PROJECT}.iam.gserviceaccount.co
 IMAGE_TAG="${IMAGE_TAG:-$(date -u +%Y%m%d-%H%M%S)}"
 PUBSUB_TOPIC="${PUBSUB_TOPIC:-prescription-jobs}"
 FIRESTORE_PROJECT="${FIRESTORE_PROJECT:-${GCP_PROJECT}}"
-ASYNC_PRESCRIPTION="${ASYNC_PRESCRIPTION:-false}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 METADATA_FILE="${REPO_ROOT}/deployment_metadata.json"
@@ -55,7 +54,6 @@ echo "▶ Service        : ${SERVICE_NAME}"
 echo "▶ Image          : ${IMAGE}"
 echo "▶ Service account: ${APP_SA}"
 echo "▶ Runtime        : ${AGENT_RUNTIME_RESOURCE}"
-echo "▶ Async flag     : ${ASYNC_PRESCRIPTION}"
 echo "▶ Pub/Sub topic  : ${PUBSUB_TOPIC}"
 echo "▶ Firestore      : ${FIRESTORE_PROJECT}"
 
@@ -87,7 +85,8 @@ gcloud run deploy "${SERVICE_NAME}" \
   --image="${IMAGE}" \
   --service-account="${APP_SA}" \
   --allow-unauthenticated \
-  --update-env-vars="AGENT_RUNTIME_RESOURCE=${AGENT_RUNTIME_RESOURCE},GOOGLE_CLOUD_PROJECT=${GCP_PROJECT},PUBSUB_TOPIC=${PUBSUB_TOPIC},FIRESTORE_PROJECT=${FIRESTORE_PROJECT},JOB_STORE_BACKEND=firestore,ASYNC_PRESCRIPTION=${ASYNC_PRESCRIPTION}" \
+  --update-env-vars="AGENT_RUNTIME_RESOURCE=${AGENT_RUNTIME_RESOURCE},GOOGLE_CLOUD_PROJECT=${GCP_PROJECT},PUBSUB_TOPIC=${PUBSUB_TOPIC},FIRESTORE_PROJECT=${FIRESTORE_PROJECT},JOB_STORE_BACKEND=firestore" \
+  --remove-env-vars="ASYNC_PRESCRIPTION" \
   --quiet
 
 SERVICE_URL="$(gcloud run services describe "${SERVICE_NAME}" \

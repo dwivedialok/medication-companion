@@ -265,4 +265,36 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get langBengali => 'Bengali';
+
+  @override
+  String get pastPrescriptionsButton => 'Past prescriptions';
+
+  @override
+  String get historyTitle => 'Past prescriptions';
+
+  @override
+  String get historyEmpty =>
+      'No past prescriptions yet. Analyse one to see it here.';
+
+  @override
+  String get historyLoadError =>
+      'Could not load your past prescriptions. Pull to retry.';
+
+  @override
+  String get historyProcessing => 'Analysing...';
+
+  @override
+  String get historyFailed => 'Analysis failed';
+
+  @override
+  String get historyImageUnavailable => 'Image unavailable';
+
+  @override
+  String get prescriptionImageLabel => 'Original prescription';
+
+  @override
+  String get openAnalysisInProgress => 'Open in-progress analysis';
+
+  @override
+  String get analysisNotReady => 'Your analysis is still being prepared.';
 }

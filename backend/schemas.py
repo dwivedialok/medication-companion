@@ -55,8 +55,35 @@ class PrescriptionJobStatus(BaseModel):
     updated_at: str
     result: PrescriptionResult | None = None
     error: JobError | None = None
+    gcs_uri: str | None = None
+    language: str | None = None
+    content_type: str | None = None
 
 
 class PrescriptionJobEnqueueResponse(BaseModel):
     job_id: str
     status: Literal["pending"] = "pending"
+
+
+class PrescriptionHistoryItem(BaseModel):
+    """Thin projection of a job for the History list (no full result payload)."""
+
+    job_id: str
+    status: Literal["pending", "processing", "done", "failed"]
+    created_at: str
+    updated_at: str
+    language: str
+    overall_severity: Literal["HIGH", "MODERATE", "LOW", "INFO", "NONE"] | None = None
+    drug_count: int | None = None
+    summary_one_liner: str | None = None
+    error_code: str | None = None
+
+
+class PrescriptionListResponse(BaseModel):
+    items: list[PrescriptionHistoryItem]
+
+
+class PrescriptionImageUrlResponse(BaseModel):
+    read_url: str
+    content_type: str
+    expires_in_seconds: int

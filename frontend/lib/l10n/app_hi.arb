@@ -80,5 +80,15 @@
   "langHindi": "हिंदी",
   "langTamil": "தமிழ்",
   "langTelugu": "తెలుగు",
-  "langBengali": "বাংলা"
+  "langBengali": "বাংলা",
+  "pastPrescriptionsButton": "पुरानी जाँच",
+  "historyTitle": "पुरानी जाँच",
+  "historyEmpty": "अभी तक कोई पुरानी जाँच नहीं है। नई दवाई पर्चे की जाँच करें।",
+  "historyLoadError": "पुरानी जाँच लोड नहीं हो पाई। नीचे खींचकर फिर कोशिश करें।",
+  "historyProcessing": "जाँच चल रही है...",
+  "historyFailed": "जाँच पूरी नहीं हो पाई",
+  "historyImageUnavailable": "फोटो उपलब्ध नहीं है",
+  "prescriptionImageLabel": "मूल दवाई पर्चा",
+  "openAnalysisInProgress": "चल रही जाँच खोलें",
+  "analysisNotReady": "आपकी जाँच अभी तैयार हो रही है।"
 }

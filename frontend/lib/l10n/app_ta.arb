@@ -80,5 +80,15 @@
   "langHindi": "ஹிந்தி",
   "langTamil": "தமிழ்",
   "langTelugu": "தெலுங்கு",
-  "langBengali": "வங்காளம்"
+  "langBengali": "வங்காளம்",
+  "pastPrescriptionsButton": "முந்தைய பரிசோதனைகள்",
+  "historyTitle": "முந்தைய பரிசோதனைகள்",
+  "historyEmpty": "இதுவரை எந்த பரிசோதனையும் இல்லை. ஒரு மருந்துச் சீட்டை பரிசோதிக்கவும்.",
+  "historyLoadError": "பழைய பரிசோதனைகளை ஏற்ற முடியவில்லை. கீழே இழுத்து மீண்டும் முயற்சிக்கவும்.",
+  "historyProcessing": "பரிசோதனை நடக்கிறது...",
+  "historyFailed": "பரிசோதனை தோல்வியடைந்தது",
+  "historyImageUnavailable": "படம் கிடைக்கவில்லை",
+  "prescriptionImageLabel": "அசல் மருந்துச் சீட்டு",
+  "openAnalysisInProgress": "நடந்துகொண்டிருக்கும் பரிசோதனையை திற",
+  "analysisNotReady": "உங்கள் பரிசோதனை இன்னும் தயாராகிறது."
 }

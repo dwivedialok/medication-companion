@@ -271,4 +271,36 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get langBengali => 'வங்காளம்';
+
+  @override
+  String get pastPrescriptionsButton => 'முந்தைய பரிசோதனைகள்';
+
+  @override
+  String get historyTitle => 'முந்தைய பரிசோதனைகள்';
+
+  @override
+  String get historyEmpty =>
+      'இதுவரை எந்த பரிசோதனையும் இல்லை. ஒரு மருந்துச் சீட்டை பரிசோதிக்கவும்.';
+
+  @override
+  String get historyLoadError =>
+      'பழைய பரிசோதனைகளை ஏற்ற முடியவில்லை. கீழே இழுத்து மீண்டும் முயற்சிக்கவும்.';
+
+  @override
+  String get historyProcessing => 'பரிசோதனை நடக்கிறது...';
+
+  @override
+  String get historyFailed => 'பரிசோதனை தோல்வியடைந்தது';
+
+  @override
+  String get historyImageUnavailable => 'படம் கிடைக்கவில்லை';
+
+  @override
+  String get prescriptionImageLabel => 'அசல் மருந்துச் சீட்டு';
+
+  @override
+  String get openAnalysisInProgress => 'நடந்துகொண்டிருக்கும் பரிசோதனையை திற';
+
+  @override
+  String get analysisNotReady => 'உங்கள் பரிசோதனை இன்னும் தயாராகிறது.';
 }

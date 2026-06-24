@@ -22,9 +22,6 @@ def _broker_env(monkeypatch):
     monkeypatch.setenv("DEV_PATIENT_ID", "broker-test-patient")
     monkeypatch.setenv("JOB_STORE_BACKEND", "memory")
     monkeypatch.setenv("PUBSUB_BACKEND", "inline")
-    import auth_broker.main as main_mod
-
-    monkeypatch.setattr(main_mod, "ASYNC_PRESCRIPTION", False)
     job_store_module._memory_store = job_store_module.MemoryJobStore()
 
 
@@ -58,22 +55,21 @@ async def test_prescription_rejects_wrong_patient_gcs_path(broker_app):
 
 @pytest.mark.asyncio
 async def test_prescription_async_returns_202(broker_app, patient_gcs_uri):
-    with patch("auth_broker.main.ASYNC_PRESCRIPTION", True):
-        with patch(
-            "auth_broker.prescription_handler.run_prescription_pipeline",
-            new=AsyncMock(return_value=("sess-1", [])),
-        ):
-            async with AsyncClient(
-                transport=ASGITransport(app=broker_app), base_url="http://test"
-            ) as client:
-                resp = await client.post(
-                    "/prescription",
-                    json={"gcs_uri": patient_gcs_uri, "language": "en-IN"},
-                )
-                await asyncio.sleep(0.05)
-                assert resp.status_code == 202
-                job_id = resp.json()["job_id"]
-                job_resp = await client.get(f"/jobs/{job_id}")
+    with patch(
+        "auth_broker.prescription_handler.run_prescription_pipeline",
+        new=AsyncMock(return_value=("sess-1", [])),
+    ):
+        async with AsyncClient(
+            transport=ASGITransport(app=broker_app), base_url="http://test"
+        ) as client:
+            resp = await client.post(
+                "/prescription",
+                json={"gcs_uri": patient_gcs_uri, "language": "en-IN"},
+            )
+            await asyncio.sleep(0.05)
+            assert resp.status_code == 202
+            job_id = resp.json()["job_id"]
+            job_resp = await client.get(f"/jobs/{job_id}")
     assert job_resp.status_code == 200
     assert job_resp.json()["job_id"] == job_id
 

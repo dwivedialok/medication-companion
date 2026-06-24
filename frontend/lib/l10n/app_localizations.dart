@@ -589,6 +589,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Bengali'**
   String get langBengali;
+
+  /// No description provided for @pastPrescriptionsButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Past prescriptions'**
+  String get pastPrescriptionsButton;
+
+  /// No description provided for @historyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Past prescriptions'**
+  String get historyTitle;
+
+  /// No description provided for @historyEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No past prescriptions yet. Analyse one to see it here.'**
+  String get historyEmpty;
+
+  /// No description provided for @historyLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load your past prescriptions. Pull to retry.'**
+  String get historyLoadError;
+
+  /// No description provided for @historyProcessing.
+  ///
+  /// In en, this message translates to:
+  /// **'Analysing...'**
+  String get historyProcessing;
+
+  /// No description provided for @historyFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Analysis failed'**
+  String get historyFailed;
+
+  /// No description provided for @historyImageUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Image unavailable'**
+  String get historyImageUnavailable;
+
+  /// No description provided for @prescriptionImageLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Original prescription'**
+  String get prescriptionImageLabel;
+
+  /// No description provided for @openAnalysisInProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in-progress analysis'**
+  String get openAnalysisInProgress;
+
+  /// No description provided for @analysisNotReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Your analysis is still being prepared.'**
+  String get analysisNotReady;
 }
 
 class _AppLocalizationsDelegate

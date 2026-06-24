@@ -138,8 +138,8 @@ the Firestore SDK.
 runs on Cloud Run (`medication-companion-broker`). Same hostname in prod; different services.
 
 **Local dev shortcut:** Flutter or `test_prescription.py` → `localhost:8080` broker → either
-**local ADK Runner** (A1) or **remote Agent Runtime** (B2). Local async:
-`ASYNC_PRESCRIPTION=true JOB_STORE_BACKEND=memory PUBSUB_BACKEND=inline USE_LOCAL_RUNNER=true`.
+**local ADK Runner** (A1) or **remote Agent Runtime** (B2). `/prescription` is always
+async — local in-process worker: `JOB_STORE_BACKEND=memory PUBSUB_BACKEND=inline USE_LOCAL_RUNNER=true`.
 
 ---
 
@@ -173,7 +173,7 @@ runs on Cloud Run (`medication-companion-broker`). Same hostname in prod; differ
 | **A2b** | §0 + **§2 step 1 only** (`make deploy` + `deploy-status`). No auth broker or Hosting. |
 | **A2b-broker** | Same as A2b + local broker running (no `deploy-auth-broker` required if broker code unchanged). |
 | **A3** | §0 + §1 + **§2** (`make deploy-backend`). Hosting optional if broker Cloud Run URL used directly. |
-| **A3-async** | A3 + **§2.1** ([runbook](deployment_runbook.md)): `make infra-apply`, `make deploy-async-backend`, `grant_pubsub_worker_push.sh`, **`firebase deploy --only hosting`** ( `/jobs/**` rewrite), `ASYNC_PRESCRIPTION=true` on broker. **No** new Agent Runtime deploy. |
+| **A3-async** | A3 + **§2.1** ([runbook](deployment_runbook.md)): `make infra-apply`, `make deploy-async-backend`, `grant_pubsub_worker_push.sh`, **`firebase deploy --only hosting`** ( `/jobs/**` rewrite). **No** new Agent Runtime deploy. |
 | **B1** | Same as A1. |
 | **B2** | Same as A3 (need deployed Agent Runtime + `deployment_metadata.json`). |
 | **C** | §0 + §1 + **§2 + §3** (`make deploy-backend` then `make deploy-frontend`). |
@@ -395,9 +395,9 @@ uv run python scripts/inspect_memory_bank.py --patient-id YOUR_FIREBASE_UID
 
 ### A3 · Cloud Agent Runtime + cloud auth broker (sync)
 
-**Tests:** Firebase JWT, signed GCS PUT, broker → Runtime, full backend path (no Flutter UI).
-Default broker deploy uses **`ASYNC_PRESCRIPTION=false`** → **`POST /prescription` returns HTTP 200**
-with full `PrescriptionResult` in one response.
+**Tests:** Firebase JWT, signed GCS PUT, broker → Pub/Sub → worker → Runtime, full backend path
+(no Flutter UI). **`POST /prescription` always returns HTTP 202 + `job_id`**; client polls
+`GET /jobs/{job_id}` until `status == done` and reads `result`.
 
 **Deploy:** runbook §2 (`make deploy-backend`).
 
@@ -443,7 +443,7 @@ Runtime unchanged) unless you also changed agent code.
 export GCP_PROJECT=medication-companion-dev
 export RX_IMAGE=data/sample/smoke_4drug_2interactions.png
 
-# 1. Infra + worker + broker images (async env, flag still false until step 4)
+# 1. Infra + worker + broker images
 make infra-apply GCP_PROJECT=$GCP_PROJECT
 GCP_PROJECT=$GCP_PROJECT ./scripts/grant_pubsub_worker_push.sh
 make deploy-async-backend GCP_PROJECT=$GCP_PROJECT
@@ -451,11 +451,8 @@ make deploy-async-backend GCP_PROJECT=$GCP_PROJECT
 # 2. Hosting must rewrite /jobs/** → broker (not index.html)
 firebase deploy --only hosting --project $GCP_PROJECT
 
-# 3. Enable async responses on broker
-make deploy-auth-broker GCP_PROJECT=$GCP_PROJECT ASYNC_PRESCRIPTION=true
-
-# 4. Smoke
-curl -s https://$GCP_PROJECT.web.app/health | jq .async_prescription   # true
+# 3. Smoke
+curl -s https://$GCP_PROJECT.web.app/health | jq   # status: healthy
 
 export FIREBASE_ID_TOKEN="$(uv run python scripts/firebase_id_token.py --print-token-only)"
 
@@ -549,7 +546,7 @@ cd frontend && flutter run -d chrome
 ## C · Full cloud E2E
 
 **Tests:** Hosting static assets, rewrites, Firebase Auth, broker, Runtime, GCS — everything.
-When broker has `ASYNC_PRESCRIPTION=true`, Flutter polls `GET /jobs/{id}` (same as A3-async).
+Flutter always polls `GET /jobs/{id}` (same as A3-async).
 
 **Deploy:** runbook §2 + §3 (and §2.1 if async enabled).
 
@@ -571,8 +568,8 @@ make deploy-frontend GCP_PROJECT=$GCP_PROJECT
 
 **Async prescriptions do not change eval workflows.** Agent-quality evals hit **Agent Runtime
 directly** (`agents-cli eval`, `run_vision_eval_trace.py`) or call `run_prescription_pipeline`
-— not the broker HTTP async path. Flip `ASYNC_PRESCRIPTION` on/off without re-running eval
-suites unless you changed agent code.
+— not the broker HTTP async path. Eval suites are independent of broker deploys unless agent
+code changed.
 
 Three incremental checks — run in order.
 
@@ -748,7 +745,7 @@ bq query --use_legacy_sql=false \
 | Deployed Runtime revision | — | status | ✓ | ✓ | ✓ | ✓ | — | ✓ | ✓ |
 | PrescriptionResult JSON | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-\*When `ASYNC_PRESCRIPTION=true` on broker and Flutter built with async polling support.
+\*`/prescription` is always async; Flutter polls `/jobs/{id}` for the final result.
 
 ---
 

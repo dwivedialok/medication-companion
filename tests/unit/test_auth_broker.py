@@ -19,9 +19,7 @@ def _broker_env(monkeypatch):
     monkeypatch.setenv("ENVIRONMENT", "local")
     monkeypatch.setenv("DEV_PATIENT_ID", "broker-test-patient")
     monkeypatch.setenv("JOB_STORE_BACKEND", "memory")
-    import auth_broker.main as main_mod
-
-    monkeypatch.setattr(main_mod, "ASYNC_PRESCRIPTION", False)
+    monkeypatch.setenv("PUBSUB_BACKEND", "inline")
 
 
 @pytest.fixture
@@ -90,29 +88,21 @@ async def test_prescription_rejects_non_gs_uri(broker_app):
 
 
 @pytest.mark.asyncio
-async def test_prescription_gate1_reject(broker_app):
-    from agents.agent1_reader import Gate1Reject
-
-    reject = Gate1Reject(reason="unreadable", user_message="Please retake the photo.")
-    mock_events = [{"author": "prescription_reader", "content": {"parts": []}}]
-
+async def test_prescription_enqueues_async(broker_app):
+    """All /prescription requests now return 202 + job_id; gate1 surfaces via job status."""
     with patch(
         "auth_broker.prescription_handler.run_prescription_pipeline",
-        new=AsyncMock(return_value=("sess-1", mock_events)),
+        new=AsyncMock(return_value=("sess-1", [])),
     ):
-        with patch(
-            "auth_broker.prescription_handler.find_gate1_reject",
-            return_value=reject,
-        ):
-            async with AsyncClient(
-                transport=ASGITransport(app=broker_app), base_url="http://test"
-            ) as client:
-                resp = await client.post(
-                    "/prescription",
-                    json={
-                        "gcs_uri": "gs://bucket/prescriptions/broker-test-patient/x.jpg",
-                        "language": "en-IN",
-                    },
-                )
-    assert resp.status_code == 422
-    assert resp.json()["error"] == "gate1_reject"
+        async with AsyncClient(
+            transport=ASGITransport(app=broker_app), base_url="http://test"
+        ) as client:
+            resp = await client.post(
+                "/prescription",
+                json={
+                    "gcs_uri": "gs://bucket/prescriptions/broker-test-patient/x.jpg",
+                    "language": "en-IN",
+                },
+            )
+    assert resp.status_code == 202
+    assert "job_id" in resp.json()

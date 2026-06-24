@@ -102,11 +102,10 @@ grant-hosting-invoker:
 
 # ── Auth broker (Cloud Run) ───────────────────────────────────────────────────
 # Build, push, and update the broker revision. Terraform owns the service
-# skeleton + IAM; this script sets AGENT_RUNTIME_RESOURCE and async env vars.
-ASYNC_PRESCRIPTION ?= false
+# skeleton + IAM; this script sets AGENT_RUNTIME_RESOURCE and Pub/Sub env vars.
+# /prescription is always async — broker enqueues to Pub/Sub, worker processes.
 deploy-auth-broker:
 	GCP_PROJECT=$(GCP_PROJECT) GCP_REGION=$(GCP_REGION) \
-		ASYNC_PRESCRIPTION=$(ASYNC_PRESCRIPTION) \
 		FIRESTORE_PROJECT=$(GCP_PROJECT) \
 		./deploy/auth_broker/deploy.sh
 
@@ -125,13 +124,10 @@ deploy-backend: deploy deploy-auth-broker
 
 # Convenience: Flutter PWA build + Firebase Hosting deploy.
 # Requires `flutterfire configure` was run once for this project.
-# Match broker: ASYNC_PRESCRIPTION=true when broker async is enabled (Phase C).
 FIREBASE_PROJECT ?= $(GCP_PROJECT)
 HOSTING_URL ?= https://$(FIREBASE_PROJECT).web.app
-ASYNC_PRESCRIPTION ?= false
 deploy-frontend:
 	cd frontend && flutter build web --release \
 		--dart-define=API_BASE_URL=$(HOSTING_URL) \
-		--dart-define=ENVIRONMENT=production \
-		--dart-define=ASYNC_PRESCRIPTION=$(ASYNC_PRESCRIPTION)
+		--dart-define=ENVIRONMENT=production
 	firebase deploy --only hosting --project $(FIREBASE_PROJECT)

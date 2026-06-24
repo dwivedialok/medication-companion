@@ -6,6 +6,7 @@ import 'package:http_parser/http_parser.dart';
 
 import '../auth/firebase_auth_service.dart';
 import '../config.dart';
+import '../models/prescription_history_item.dart';
 import '../models/prescription_job.dart';
 import '../models/prescription_result.dart';
 
@@ -43,9 +44,9 @@ class ApiService {
     return {};
   }
 
-  /// Upload image and run analysis (sync 200 or async 202 + poll).
+  /// Upload image, enqueue analysis, and poll until the job completes.
   ///
-  /// [onJobStatus] receives pending | processing | done | failed during async poll.
+  /// [onJobStatus] receives pending | processing | done | failed during the poll.
   Future<PrescriptionResult> analyzePrescription({
     required Uint8List imageBytes,
     required String mimeType,
@@ -65,25 +66,76 @@ class ApiService {
       contentType: upload.contentType,
     );
 
-    if (analyzeResp.statusCode == 200) {
-      final body = _decodeBody(analyzeResp) as Map<String, dynamic>;
-      return PrescriptionResult.fromJson(body);
+    if (analyzeResp.statusCode != 202) {
+      return _handlePrescriptionError(analyzeResp);
     }
 
-    if (analyzeResp.statusCode == 202) {
-      final body = _decodeBody(analyzeResp) as Map<String, dynamic>;
-      final jobId = body['job_id'] as String?;
-      if (jobId == null || jobId.isEmpty) {
-        throw ApiException(202, 'Missing job_id in async response.');
+    final body = _decodeBody(analyzeResp) as Map<String, dynamic>;
+    final jobId = body['job_id'] as String?;
+    if (jobId == null || jobId.isEmpty) {
+      throw ApiException(202, 'Missing job_id in async response.');
+    }
+    onJobStatus?.call('pending');
+    return waitForPrescriptionResult(jobId, onStatus: onJobStatus);
+  }
+
+  /// List the authenticated patient's past prescription analyses.
+  Future<List<PrescriptionHistoryItem>> listPrescriptions({int limit = 50}) async {
+    final base = _baseUrl;
+    final resp = await http
+        .get(
+          Uri.parse('$base/prescriptions?limit=$limit'),
+          headers: await _authHeaders(),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    final body = _decodeBody(resp);
+    if (resp.statusCode == 200) {
+      final map = body as Map<String, dynamic>;
+      final items = (map['items'] as List<dynamic>? ?? []);
+      return items
+          .map((e) => PrescriptionHistoryItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    throw ApiException(
+      resp.statusCode,
+      _errorMessage(body) ?? 'Could not load prescription history.',
+    );
+  }
+
+  /// Fetch the full PrescriptionResult for a completed job.
+  Future<PrescriptionResult> getPrescriptionResult(String jobId) async {
+    final job = await getJobStatus(jobId);
+    final result = job.result;
+    if (job.status != 'done' || result == null) {
+      throw ApiException(409, 'Prescription analysis is not ready yet.');
+    }
+    return result;
+  }
+
+  /// Request a short-lived signed GET URL for the original prescription image.
+  Future<String> getPrescriptionImageUrl(String jobId) async {
+    final base = _baseUrl;
+    final resp = await http
+        .get(
+          Uri.parse('$base/prescriptions/$jobId/image-url'),
+          headers: await _authHeaders(),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    final body = _decodeBody(resp);
+    if (resp.statusCode == 200) {
+      final map = body as Map<String, dynamic>;
+      final url = map['read_url'] as String?;
+      if (url == null || url.isEmpty) {
+        throw ApiException(500, 'Missing read_url in image response.');
       }
-      onJobStatus?.call('pending');
-      return waitForPrescriptionResult(
-        jobId,
-        onStatus: onJobStatus,
-      );
+      return url;
     }
-
-    return _handlePrescriptionError(analyzeResp);
+    throw ApiException(
+      resp.statusCode,
+      _errorMessage(body) ?? 'Could not load prescription image.',
+    );
   }
 
   Future<({String gcsUri, String contentType})> _uploadPrescriptionImage({
@@ -179,11 +231,7 @@ class ApiService {
       'Content-Type': 'application/json',
     };
 
-    // Sync path: long timeout. Async path: broker returns quickly with 202.
-    final timeout = AppConfig.asyncPrescription
-        ? const Duration(seconds: 30)
-        : const Duration(seconds: 120);
-
+    // Broker enqueues and returns 202 quickly; client polls /jobs/{id}.
     return http
         .post(
           Uri.parse('$base/prescription'),
@@ -194,7 +242,7 @@ class ApiService {
             'content_type': contentType,
           }),
         )
-        .timeout(timeout);
+        .timeout(const Duration(seconds: 30));
   }
 
   Future<PrescriptionJob> getJobStatus(String jobId) async {

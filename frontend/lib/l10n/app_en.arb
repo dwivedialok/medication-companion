@@ -115,5 +115,15 @@
   "langHindi": "Hindi",
   "langTamil": "Tamil",
   "langTelugu": "Telugu",
-  "langBengali": "Bengali"
+  "langBengali": "Bengali",
+  "pastPrescriptionsButton": "Past prescriptions",
+  "historyTitle": "Past prescriptions",
+  "historyEmpty": "No past prescriptions yet. Analyse one to see it here.",
+  "historyLoadError": "Could not load your past prescriptions. Pull to retry.",
+  "historyProcessing": "Analysing...",
+  "historyFailed": "Analysis failed",
+  "historyImageUnavailable": "Image unavailable",
+  "prescriptionImageLabel": "Original prescription",
+  "openAnalysisInProgress": "Open in-progress analysis",
+  "analysisNotReady": "Your analysis is still being prepared."
 }

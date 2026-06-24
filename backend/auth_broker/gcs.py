@@ -126,6 +126,43 @@ def create_upload_target(content_type: str, patient_id: str) -> dict[str, str]:
     }
 
 
+def create_read_url(gcs_uri: str, expires_minutes: int = 10) -> dict[str, str | int]:
+    """
+    Return a short-lived V4 signed GET URL for an existing prescription object.
+
+    Used by the History UI to display the original prescription image. The
+    caller MUST verify ownership before invoking this (see auth_broker/main.py).
+
+    Raises:
+        ValueError: gcs_uri is malformed.
+        RuntimeError: GCS client or signing credentials unavailable.
+    """
+    from google.cloud import storage
+
+    if not gcs_uri.startswith("gs://"):
+        raise ValueError("gcs_uri must start with gs://")
+    path = gcs_uri[len("gs://") :]
+    bucket_name, _, blob_name = path.partition("/")
+    if not bucket_name or not blob_name:
+        raise ValueError("Invalid GCS URI")
+
+    client = storage.Client()
+    blob = client.bucket(bucket_name).get_blob(blob_name)
+    if blob is None:
+        raise ValueError("Prescription image not found in GCS")
+
+    read_url = _signed_url(
+        blob,
+        method="GET",
+        expiration=datetime.timedelta(minutes=expires_minutes),
+    )
+    return {
+        "read_url": read_url,
+        "content_type": blob.content_type or "application/octet-stream",
+        "expires_in_seconds": expires_minutes * 60,
+    }
+
+
 def assert_gcs_uri_owned_by_patient(gcs_uri: str, patient_id: str) -> None:
     """
     Reject gcs_uri unless it points at prescriptions/{patient_id}/…
