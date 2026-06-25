@@ -288,6 +288,12 @@ class AppLocalizationsTe extends AppLocalizations {
   String get historyFailed => 'విశ్లేషణ విఫలమైంది';
 
   @override
+  String get historyGate1Chip => 'కొత్త ఫోటో అవసరం';
+
+  @override
+  String get historyGate1Title => 'ఈ చిత్రాన్ని చదవలేకపోయాము';
+
+  @override
   String get historyImageUnavailable => 'చిత్రం అందుబాటులో లేదు';
 
   @override

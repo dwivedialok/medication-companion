@@ -87,6 +87,8 @@
   "historyLoadError": "మీ గత ప్రిస్క్రిప్షన్‌లను లోడ్ చేయలేకపోయాము. మళ్లీ ప్రయత్నించడానికి కిందికి లాగండి.",
   "historyProcessing": "విశ్లేషిస్తోంది...",
   "historyFailed": "విశ్లేషణ విఫలమైంది",
+  "historyGate1Chip": "కొత్త ఫోటో అవసరం",
+  "historyGate1Title": "ఈ చిత్రాన్ని చదవలేకపోయాము",
   "historyImageUnavailable": "చిత్రం అందుబాటులో లేదు",
   "prescriptionImageLabel": "అసలు ప్రిస్క్రిప్షన్",
   "openAnalysisInProgress": "జరుగుతున్న విశ్లేషణను తెరవండి",

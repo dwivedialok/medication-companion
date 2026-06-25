@@ -122,6 +122,8 @@
   "historyLoadError": "Could not load your past prescriptions. Pull to retry.",
   "historyProcessing": "Analysing...",
   "historyFailed": "Analysis failed",
+  "historyGate1Chip": "Needs retake",
+  "historyGate1Title": "Couldn't analyse this image",
   "historyImageUnavailable": "Image unavailable",
   "prescriptionImageLabel": "Original prescription",
   "openAnalysisInProgress": "Open in-progress analysis",

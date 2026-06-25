@@ -293,6 +293,12 @@ class AppLocalizationsTa extends AppLocalizations {
   String get historyFailed => 'பரிசோதனை தோல்வியடைந்தது';
 
   @override
+  String get historyGate1Chip => 'புதிய படம் தேவை';
+
+  @override
+  String get historyGate1Title => 'இந்த படத்தை படிக்க முடியவில்லை';
+
+  @override
   String get historyImageUnavailable => 'படம் கிடைக்கவில்லை';
 
   @override

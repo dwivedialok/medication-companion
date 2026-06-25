@@ -87,6 +87,8 @@
   "historyLoadError": "பழைய பரிசோதனைகளை ஏற்ற முடியவில்லை. கீழே இழுத்து மீண்டும் முயற்சிக்கவும்.",
   "historyProcessing": "பரிசோதனை நடக்கிறது...",
   "historyFailed": "பரிசோதனை தோல்வியடைந்தது",
+  "historyGate1Chip": "புதிய படம் தேவை",
+  "historyGate1Title": "இந்த படத்தை படிக்க முடியவில்லை",
   "historyImageUnavailable": "படம் கிடைக்கவில்லை",
   "prescriptionImageLabel": "அசல் மருந்துச் சீட்டு",
   "openAnalysisInProgress": "நடந்துகொண்டிருக்கும் பரிசோதனையை திற",

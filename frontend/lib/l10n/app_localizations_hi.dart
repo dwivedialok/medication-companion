@@ -286,6 +286,12 @@ class AppLocalizationsHi extends AppLocalizations {
   String get historyFailed => 'जाँच पूरी नहीं हो पाई';
 
   @override
+  String get historyGate1Chip => 'नई फोटो चाहिए';
+
+  @override
+  String get historyGate1Title => 'यह फोटो पढ़ी नहीं जा सकी';
+
+  @override
   String get historyImageUnavailable => 'फोटो उपलब्ध नहीं है';
 
   @override

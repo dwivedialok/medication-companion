@@ -287,6 +287,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get historyFailed => 'Analysis failed';
 
   @override
+  String get historyGate1Chip => 'Needs retake';
+
+  @override
+  String get historyGate1Title => 'Couldn\'t analyse this image';
+
+  @override
   String get historyImageUnavailable => 'Image unavailable';
 
   @override

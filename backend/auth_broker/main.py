@@ -316,18 +316,29 @@ async def get_prescription_job(job_id: str, request: Request):
     return job
 
 
+def _truncate_one_liner(text: str, *, limit: int = 140) -> str:
+    first_line = text.splitlines()[0].strip()
+    if len(first_line) <= limit:
+        return first_line
+    return first_line[: limit - 3] + "..."
+
+
 def _summarise_job(job: PrescriptionJobStatus) -> PrescriptionHistoryItem:
     """Project a job document into the lighter history item shape."""
     overall_severity = None
     drug_count = None
     summary = None
+    error_message = None
     if job.result is not None:
         overall_severity = job.result.overall_severity
         drug_count = len(job.result.resolved_drugs)
         text = (job.result.explanation_localised or job.result.explanation_en or "").strip()
         if text:
-            first_line = text.splitlines()[0]
-            summary = first_line if len(first_line) <= 140 else first_line[:137] + "..."
+            summary = _truncate_one_liner(text)
+    elif job.error is not None:
+        error_message = job.error.message.strip() or None
+        if error_message:
+            summary = _truncate_one_liner(error_message)
     # Language is stored on the job doc but not on PrescriptionJobStatus; fall
     # back to the result's localised explanation locale when present.
     language = getattr(job, "language", None) or "en-IN"
@@ -341,6 +352,7 @@ def _summarise_job(job: PrescriptionJobStatus) -> PrescriptionHistoryItem:
         drug_count=drug_count,
         summary_one_liner=summary,
         error_code=(job.error.code if job.error is not None else None),
+        error_message=error_message,
     )
 
 
