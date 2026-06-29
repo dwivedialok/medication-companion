@@ -10,6 +10,7 @@ class PrescriptionHistoryItem {
   final int? drugCount;
   final String? summaryOneLiner;
   final String? errorCode;
+  final String? errorMessage;
 
   const PrescriptionHistoryItem({
     required this.jobId,
@@ -21,11 +22,13 @@ class PrescriptionHistoryItem {
     this.drugCount,
     this.summaryOneLiner,
     this.errorCode,
+    this.errorMessage,
   });
 
   bool get isTerminal => status == 'done' || status == 'failed';
   bool get isReady => status == 'done';
   bool get isInProgress => status == 'pending' || status == 'processing';
+  bool get isGate1Reject => errorCode == 'gate1_reject';
 
   factory PrescriptionHistoryItem.fromJson(Map<String, dynamic> json) {
     DateTime parseDate(String? raw) {
@@ -44,6 +47,7 @@ class PrescriptionHistoryItem {
       drugCount: json['drug_count'] as int?,
       summaryOneLiner: json['summary_one_liner'] as String?,
       errorCode: json['error_code'] as String?,
+      errorMessage: json['error_message'] as String?,
     );
   }
 }

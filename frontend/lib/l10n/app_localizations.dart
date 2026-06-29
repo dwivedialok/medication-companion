@@ -626,6 +626,18 @@ abstract class AppLocalizations {
   /// **'Analysis failed'**
   String get historyFailed;
 
+  /// No description provided for @historyGate1Chip.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs retake'**
+  String get historyGate1Chip;
+
+  /// No description provided for @historyGate1Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t analyse this image'**
+  String get historyGate1Title;
+
   /// No description provided for @historyImageUnavailable.
   ///
   /// In en, this message translates to:

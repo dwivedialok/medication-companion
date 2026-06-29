@@ -10,6 +10,7 @@ from httpx import ASGITransport, AsyncClient
 import auth_broker.job_store as job_store_module
 from schemas import (
     InteractionFinding,
+    JobError,
     PrescriptionResult,
     ResolvedDrug,
 )
@@ -136,6 +137,105 @@ async def test_list_prescriptions_projects_summary_fields(broker_app):
     assert pending_item["status"] == "pending"
     assert pending_item["overall_severity"] is None
     assert pending_item["drug_count"] is None
+
+
+@pytest.mark.asyncio
+async def test_list_prescriptions_projects_gate1_reject_message(broker_app):
+    store = job_store_module.get_job_store()
+    await store.create_job(
+        job_id="gate1-1",
+        patient_id=PATIENT,
+        gcs_uri=f"gs://test-bucket/prescriptions/{PATIENT}/gate1-1.jpg",
+        language="en-IN",
+        content_type="image/jpeg",
+    )
+    await store.set_failed(
+        "gate1-1",
+        JobError(
+            code="gate1_reject",
+            message=(
+                "That doesn't look like a prescription. Please upload a clear photo "
+                "of your prescription. Please discuss this with your doctor or pharmacist."
+            ),
+            reason="non_prescription_image",
+        ),
+    )
+
+    async with AsyncClient(
+        transport=ASGITransport(app=broker_app), base_url="http://test"
+    ) as client:
+        resp = await client.get("/prescriptions")
+
+    item = next(i for i in resp.json()["items"] if i["job_id"] == "gate1-1")
+    assert item["status"] == "failed"
+    assert item["error_code"] == "gate1_reject"
+    assert "doesn't look like a prescription" in item["error_message"]
+    assert "doesn't look like a prescription" in item["summary_one_liner"]
+
+
+@pytest.mark.asyncio
+async def test_list_prescriptions_prefers_agent_reason_over_canned_message(broker_app):
+    """Agent 1's LLM-generated `reason` should beat the canned `message`."""
+    store = job_store_module.get_job_store()
+    await store.create_job(
+        job_id="gate1-rich",
+        patient_id=PATIENT,
+        gcs_uri=f"gs://test-bucket/prescriptions/{PATIENT}/gate1-rich.jpg",
+        language="en-IN",
+        content_type="image/jpeg",
+    )
+    rich_reason = (
+        "The image is a public transport announcement poster from the "
+        "Bengaluru Metropolitan Transport Corporation and does not contain "
+        "any medical prescription information."
+    )
+    await store.set_failed(
+        "gate1-rich",
+        JobError(
+            code="gate1_reject",
+            message="The prescription image wasn't clear enough.",
+            reason=rich_reason,
+        ),
+    )
+
+    async with AsyncClient(
+        transport=ASGITransport(app=broker_app), base_url="http://test"
+    ) as client:
+        resp = await client.get("/prescriptions")
+
+    item = next(i for i in resp.json()["items"] if i["job_id"] == "gate1-rich")
+    assert "Bengaluru Metropolitan" in item["error_message"]
+    assert "Bengaluru Metropolitan" in item["summary_one_liner"]
+
+
+@pytest.mark.asyncio
+async def test_list_prescriptions_falls_back_to_message_for_rubric_key_reason(broker_app):
+    """When `reason` is a rubric key (policy fallback), use the safe message."""
+    store = job_store_module.get_job_store()
+    await store.create_job(
+        job_id="gate1-key",
+        patient_id=PATIENT,
+        gcs_uri=f"gs://test-bucket/prescriptions/{PATIENT}/gate1-key.jpg",
+        language="en-IN",
+        content_type="image/jpeg",
+    )
+    await store.set_failed(
+        "gate1-key",
+        JobError(
+            code="gate1_reject",
+            message="That doesn't look like a prescription. Please upload a clear photo.",
+            reason="non_prescription_image",
+        ),
+    )
+
+    async with AsyncClient(
+        transport=ASGITransport(app=broker_app), base_url="http://test"
+    ) as client:
+        resp = await client.get("/prescriptions")
+
+    item = next(i for i in resp.json()["items"] if i["job_id"] == "gate1-key")
+    assert "non_prescription_image" not in item["error_message"]
+    assert "doesn't look like a prescription" in item["error_message"]
 
 
 @pytest.mark.asyncio

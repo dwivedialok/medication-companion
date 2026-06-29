@@ -287,6 +287,12 @@ class AppLocalizationsBn extends AppLocalizations {
   String get historyFailed => 'বিশ্লেষণ ব্যর্থ হয়েছে';
 
   @override
+  String get historyGate1Chip => 'নতুন ছবি দরকার';
+
+  @override
+  String get historyGate1Title => 'এই ছবিটি পড়া যায়নি';
+
+  @override
   String get historyImageUnavailable => 'ছবি উপলব্ধ নয়';
 
   @override

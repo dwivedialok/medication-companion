@@ -87,6 +87,8 @@
   "historyLoadError": "আপনার পূর্ববর্তী প্রেসক্রিপশন লোড করা যায়নি। আবার চেষ্টা করতে নিচে টানুন।",
   "historyProcessing": "বিশ্লেষণ চলছে...",
   "historyFailed": "বিশ্লেষণ ব্যর্থ হয়েছে",
+  "historyGate1Chip": "নতুন ছবি দরকার",
+  "historyGate1Title": "এই ছবিটি পড়া যায়নি",
   "historyImageUnavailable": "ছবি উপলব্ধ নয়",
   "prescriptionImageLabel": "মূল প্রেসক্রিপশন",
   "openAnalysisInProgress": "চলমান বিশ্লেষণ খুলুন",

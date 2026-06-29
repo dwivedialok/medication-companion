@@ -46,8 +46,32 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
 
     if (item.status == 'failed') {
+      if (item.isGate1Reject) {
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(l10n.historyGate1Title),
+            content: Text(
+              item.errorMessage ?? item.summaryOneLiner ?? l10n.historyGate1Title,
+            ),
+            actions: [
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  router.go('/upload');
+                },
+                icon: const Icon(Icons.camera_alt_outlined),
+                label: Text(l10n.retakePhoto),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
       messenger.showSnackBar(
-        SnackBar(content: Text(l10n.historyFailed)),
+        SnackBar(
+          content: Text(item.errorMessage ?? l10n.historyFailed),
+        ),
       );
       return;
     }
@@ -185,12 +209,15 @@ class _HistoryCard extends StatelessWidget {
   }
 
   String _statusLabel(AppLocalizations l10n, PrescriptionHistoryItem item) {
+    if (item.summaryOneLiner != null && item.summaryOneLiner!.isNotEmpty) {
+      return item.summaryOneLiner!;
+    }
     switch (item.status) {
       case 'pending':
       case 'processing':
         return l10n.historyProcessing;
       case 'failed':
-        return l10n.historyFailed;
+        return item.isGate1Reject ? l10n.historyGate1Title : l10n.historyFailed;
       default:
         return l10n.prescriptionAnalysis;
     }
@@ -215,6 +242,14 @@ class _StatusChip extends StatelessWidget {
       );
     }
     if (item.status == 'failed') {
+      if (item.isGate1Reject) {
+        return _chip(
+          label: l10n.historyGate1Chip,
+          bg: theme.colorScheme.tertiaryContainer,
+          fg: theme.colorScheme.onTertiaryContainer,
+          icon: Icons.image_not_supported_outlined,
+        );
+      }
       return _chip(
         label: l10n.historyFailed,
         bg: theme.colorScheme.errorContainer,

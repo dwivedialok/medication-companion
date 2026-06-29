@@ -77,6 +77,7 @@ class PrescriptionHistoryItem(BaseModel):
     drug_count: int | None = None
     summary_one_liner: str | None = None
     error_code: str | None = None
+    error_message: str | None = None
 
 
 class PrescriptionListResponse(BaseModel):

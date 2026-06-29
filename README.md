@@ -310,7 +310,7 @@ disclosure process in [`SECURITY.md`](SECURITY.md).
 
 ## Acknowledgements
 
-This project began as a capstone for the 2026 Kaggle 5-Day AI Agents Intensive.
+This project began as a capstone for the 2026 Kaggle 5-Day AI Agents Intensive Vibe Coding.
 It builds on:
 
 - [Google Agent Development Kit (ADK)](https://google.github.io/adk-docs/)

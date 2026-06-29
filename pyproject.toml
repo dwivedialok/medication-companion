@@ -35,6 +35,8 @@ eval = [
 
 [dependency-groups]
 dev = [
+    "ipykernel>=7.3.0",
+    "jupyter>=1.1.1",
     "pytest>=8.2.0",
     "pytest-asyncio>=0.23.0",
 ]
