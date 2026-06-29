@@ -323,6 +323,30 @@ def _truncate_one_liner(text: str, *, limit: int = 140) -> str:
     return first_line[: limit - 3] + "..."
 
 
+def _looks_like_rubric_key(text: str) -> bool:
+    """True for short snake_case identifiers (policy rubric keys), not sentences.
+
+    Agent 1's LLM-generated `reason` is a full sentence ("The image is a
+    public transport announcement poster..."). The policy server's
+    deterministic fallback uses the rubric key (e.g. "non_prescription_image")
+    or a short phrase like "image-intake policy deny", which we don't want to
+    show to patients verbatim.
+    """
+    stripped = text.strip()
+    if not stripped or len(stripped) > 60:
+        return False
+    return " " not in stripped or stripped.replace("-", " ").replace("_", " ").count(" ") <= 2 and stripped.islower()
+
+
+def _patient_friendly_error_text(error) -> str | None:
+    """Prefer Agent 1's rich `reason` sentence; fall back to the safe message."""
+    reason = (error.reason or "").strip() if error.reason else ""
+    if reason and not _looks_like_rubric_key(reason):
+        return reason
+    msg = (error.message or "").strip()
+    return msg or None
+
+
 def _summarise_job(job: PrescriptionJobStatus) -> PrescriptionHistoryItem:
     """Project a job document into the lighter history item shape."""
     overall_severity = None
@@ -336,7 +360,7 @@ def _summarise_job(job: PrescriptionJobStatus) -> PrescriptionHistoryItem:
         if text:
             summary = _truncate_one_liner(text)
     elif job.error is not None:
-        error_message = job.error.message.strip() or None
+        error_message = _patient_friendly_error_text(job.error)
         if error_message:
             summary = _truncate_one_liner(error_message)
     # Language is stored on the job doc but not on PrescriptionJobStatus; fall

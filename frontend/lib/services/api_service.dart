@@ -295,15 +295,27 @@ class ApiService {
   Never _throwFromJobError(PrescriptionJobError? error) {
     if (error?.code == 'gate1_reject') {
       throw RetakeRequiredException(
-        error!.message.isNotEmpty
-            ? error.message
-            : 'The prescription image was not clear enough. Please retake the photo.',
+        _patientFriendlyText(error) ??
+            'The prescription image was not clear enough. Please retake the photo.',
       );
     }
     throw ApiException(
       500,
-      error?.message ?? 'Analysis failed. Please try again.',
+      _patientFriendlyText(error) ?? 'Analysis failed. Please try again.',
     );
+  }
+
+  /// Prefer Agent 1's rich `reason` sentence over the canned `message`.
+  /// Falls back to `message` if `reason` is missing or looks like a rubric
+  /// key (e.g. `non_prescription_image`).
+  static String? _patientFriendlyText(PrescriptionJobError? error) {
+    if (error == null) return null;
+    final reason = error.reason?.trim() ?? '';
+    final looksLikeKey = reason.isNotEmpty &&
+        reason.length <= 60 &&
+        !reason.contains(' ');
+    if (reason.isNotEmpty && !looksLikeKey) return reason;
+    return error.message.trim().isEmpty ? null : error.message.trim();
   }
 
   Never _handlePrescriptionError(http.Response response) {

@@ -1,9 +1,10 @@
 """
 Unit tests for backend/memory/memory_service.py.
 
-Session services are no longer constructed locally — Agent Runtime provides
-`VertexAiSessionService` natively (see deploy/legacy_cloud_run/session_service.py
-for the archived Cloud Run factory).
+Session services for local notebooks use `create_session_service()` in
+`backend/memory/session_service.py`. Agent Runtime provides
+`VertexAiSessionService` natively in production (see
+`deploy/legacy_cloud_run/session_service.py` for the archived Cloud Run copy).
 
 All tests use MEMORY_BACKEND=local (no GCP credentials required).
 """
@@ -24,6 +25,15 @@ def test_memory_service_factory_local_mode(monkeypatch):
     svc = create_memory_service()
     assert isinstance(svc, MemoryServiceWrapper)
     assert svc.is_local() is True
+
+
+def test_session_service_factory_local_mode(monkeypatch):
+    monkeypatch.setenv("MEMORY_BACKEND", "local")
+    from google.adk.sessions import InMemorySessionService
+    from memory.session_service import create_session_service
+
+    svc = create_session_service()
+    assert isinstance(svc, InMemorySessionService)
 
 
 def test_memory_service_factory_local_no_gcp_env(monkeypatch):
