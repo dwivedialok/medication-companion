@@ -30,7 +30,7 @@ dependencies:
   provider: ^6.1.2
 
   # Navigation
-  go_router: ^14.6.2
+  go_router: ^17.3.0
 
   # Date formatting
   intl: ^0.20.2
