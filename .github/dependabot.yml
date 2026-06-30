@@ -1,19 +1,27 @@
+# Dependabot version-update PRs paused until post-Kaggle (open-pull-requests-limit: 0).
+# Security alerts still work via Settings → Code security → Dependabot alerts.
+# Re-enable: set open-pull-requests-limit back to 2–5 and remove ignore blocks below.
 version: 2
 updates:
   - package-ecosystem: pip
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
 
   - package-ecosystem: pub
     directory: /frontend
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "go_router"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "flutter_lints"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
