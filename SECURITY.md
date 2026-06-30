@@ -20,8 +20,8 @@ There is no separate long-term support release cadence.
 
 Report privately using one of:
 
-1. **Preferred:** [GitHub Security Advisories](https://github.com/3amwave/medication-companion/security/advisories/new) — *Report a vulnerability* on the repository.
-2. **Alternative:** Contact [@3amwave](https://github.com/3amwave) via GitHub with subject `Security: medication-companion`.
+1. **Preferred:** [GitHub Security Advisories](https://github.com/dwivedialok/medication-companion/security/advisories/new) — *Report a vulnerability* on the repository.
+2. **Alternative:** Contact [@dwivedialok](https://github.com/dwivedialok) via GitHub with subject `Security: medication-companion`.
 
 Include:
 
@@ -57,7 +57,22 @@ this capstone project.
 - **Auth broker** is the only client-facing HTTP API; Firebase JWT is verified on every protected route; `patient_id` is derived from the verified UID, never from the request body.
 - **Agent Runtime** and the **prescription worker** are private; invoked with service-account credentials only.
 - **Prescription images** are stored in GCS under `prescriptions/{patient_id}/`; Memory Bank stores resolved generic names only — not images or clinical notes.
-- **Firestore** holds async job metadata and results; list/read endpoints filter by authenticated `patient_id`.
+- **Firestore** holds async job metadata and results; list/read endpoints filter by authenticated `patient_id`. Direct client Firestore access is denied by [`deploy/firestore.rules`](deploy/firestore.rules).
+
+## Firebase Web API key (public repos)
+
+The Flutter web app includes a Firebase Web API key in
+[`frontend/lib/firebase_options.dart`](frontend/lib/firebase_options.dart).
+This is **expected** for client-side Firebase — it is not a server secret.
+Before or immediately after making the repository public, restrict the key in
+[Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials):
+
+- **Application restrictions:** HTTP referrers — your Firebase Hosting domains
+  (e.g. `https://medication-companion-dev.web.app/*`, `http://localhost:*`).
+- **API restrictions:** limit to Firebase / Identity Toolkit APIs the app uses.
+
+Optionally enable [Firebase App Check](https://firebase.google.com/docs/app-check)
+to reduce Auth abuse on the public demo.
 
 See [`docs/architecture.md`](docs/architecture.md#security-model) and
 [`AGENTS.md`](AGENTS.md) for hard rules enforced in code review.

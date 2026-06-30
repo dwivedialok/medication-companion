@@ -107,7 +107,7 @@ jobs:
         # Firebase CLI picks up GOOGLE_APPLICATION_CREDENTIALS set by
         # google-github-actions/auth (create_credentials_file: true above).
         run: |
-          firebase deploy --only hosting --project ${{ vars.STAGING_PROJECT_ID }} --non-interactive
+          firebase deploy --only hosting,firestore:rules --project ${{ vars.STAGING_PROJECT_ID }} --non-interactive
 
       - name: Grant Firebase Hosting invoker on auth broker
         env:

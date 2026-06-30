@@ -192,6 +192,15 @@ temp/
 # =========================
 # Project-specific
 # =========================
+artifacts/**
+!artifacts/grade_results/
+artifacts/grade_results/**
+# Curated 10/10 LLM-as-Judge runs (Kaggle writeup evidence)
+!artifacts/grade_results/results_20260623_212101.json
+!artifacts/grade_results/results_20260623_212101.html
+!artifacts/grade_results/results_20260625_000749.json
+!artifacts/grade_results/results_20260625_000749.html
+deployment_metadata.json
 data/raw/
 data/processed/
 data/*.csv

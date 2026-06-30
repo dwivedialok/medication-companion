@@ -130,4 +130,4 @@ deploy-frontend:
 	cd frontend && flutter build web --release \
 		--dart-define=API_BASE_URL=$(HOSTING_URL) \
 		--dart-define=ENVIRONMENT=production
-	firebase deploy --only hosting --project $(FIREBASE_PROJECT)
+	firebase deploy --only hosting,firestore:rules --project $(FIREBASE_PROJECT)

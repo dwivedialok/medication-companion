@@ -109,7 +109,7 @@ Each agent uses ADK `LlmAgent` with a Pydantic `output_schema` — structured JS
 
 **Deterministic smoke fixture:** `data/sample/smoke_4drug_2interactions.png` lists Ecosprin (aspirin), Nise (nimesulide), Warf (warfarin), and Flagyl (metronidazole) — four curated Indian brands with **three known HIGH interactions** in `drugs.db`: aspirin+nimesulide, aspirin+warfarin, metronidazole+warfarin. Six within-visit pairs are checked (C(4,2)). Offline verification: `uv run python scripts/verify_smoke_fixture.py`. Cloud E2E against the dev PWA returns HTTP 200 with Hindi translation and a signed TTS audio URL in ~40 seconds.
 
-**LLM-as-Judge:** On the smoke fixture, `drug_safety_score` = 10.0 and `patient_clarity_score` = 10.0 (June 2026 eval run in `artifacts/grade_results/`). The judge confirmed all tool-identified interactions were faithfully reproduced with no diagnostic language. Translation accuracy and tone calibration metrics are planned in `specs/schemas/evaluation_metrics.yaml` for future deploy regression tracking.
+**LLM-as-Judge:** On the smoke fixture, `drug_safety_score` = 10.0 and `patient_clarity_score` = 10.0 (June 2026 eval runs in `artifacts/grade_results/results_20260623_212101.*` and `results_20260625_000749.*` — open the `.html` files in a browser for the full judge report). The judge confirmed all tool-identified interactions were faithfully reproduced with no diagnostic language. Translation accuracy and tone calibration metrics are planned in `specs/schemas/evaluation_metrics.yaml` for future deploy regression tracking.
 
 **Flutter frontend:** Login (Firebase email/password), home screen with five-language selector, upload with sync/async pipeline support, and result screen with severity banner, medication cards (NEW/EXISTING/UNRESOLVED tags), interaction cards, localized summary, audio player, doctor questions, and mandatory disclaimer.
 
@@ -117,7 +117,7 @@ Each agent uses ADK `LlmAgent` with a Pydantic `output_schema` — structured JS
 
 | Channel | URL | Notes |
 |---------|-----|-------|
-| **GitHub (Project Link)** | https://github.com/3amwave/medication-companion | Full source, MIT license, local quick start |
+| **GitHub (Project Link)** | https://github.com/dwivedialok/medication-companion | Full source, MIT license, local quick start |
 | **Kaggle notebook** | *(paste URL after publishing — see `docs/kaggle_submission/publish_notebook.md`)* | Runs all 5 agents with `InMemorySessionService`; add `GEMINI_API_KEY` secret |
 | **Live PWA** | https://medication-companion-dev.web.app | Demo account below |
 
@@ -142,7 +142,7 @@ Post-capstone backlog (`docs/BACKLOG.md`): expand FDC handling so Agent 3 checks
 
 Medication Companion demonstrates that agent-based systems can address real patient-safety problems when architecture enforces boundaries: vision, tools, memory, policy, and localisation as separate agents with deterministic grounding. The cross-visit interaction check — today's prescription against every prior visit's generics — is only possible because Day 3 memory and Day 2 tools compose inside a governed Day 5 production pipeline. Built for the 2026 Kaggle 5-Day AI Agents Intensive with Google ADK, Gemini, and Vertex AI Agent Runtime.
 
-**License:** MIT · **Author:** Alok Dwivedi · **Repository:** https://github.com/3amwave/medication-companion
+**License:** MIT · **Author:** Alok Dwivedi · **Repository:** https://github.com/dwivedialok/medication-companion
 
 ---
 

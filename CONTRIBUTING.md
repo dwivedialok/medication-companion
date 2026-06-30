@@ -59,7 +59,7 @@ open an issue first so maintainers can confirm direction.
 
 | Contribution type | Where to start |
 |-------------------|----------------|
-| Bug report | [GitHub Issues](https://github.com/3amwave/medication-companion/issues) — use the bug template if available |
+| Bug report | [GitHub Issues](https://github.com/dwivedialok/medication-companion/issues) — use the bug template if available |
 | Feature request | Issue first — check [`docs/out_of_scope.md`](docs/out_of_scope.md) and [`docs/BACKLOG.md`](docs/BACKLOG.md) |
 | Agent or tool behaviour change | Update [`specs/`](specs/) **before** code — see workflow below |
 | Drug data (brands, interactions) | Edit curated CSVs or [`scripts/build_drug_index.py`](scripts/build_drug_index.py); see [`AGENTS.md`](AGENTS.md#drug-data-sources) |
@@ -265,7 +265,7 @@ you are not permitted to license.
   [`docs/out_of_scope.md`](docs/out_of_scope.md)
 - Deployment: [`docs/deployment_runbook.md`](docs/deployment_runbook.md)
 - Agent conventions: [`AGENTS.md`](AGENTS.md)
-- Open a [GitHub Issue](https://github.com/3amwave/medication-companion/issues)
+- Open a [GitHub Issue](https://github.com/dwivedialok/medication-companion/issues)
   for questions that are not security-sensitive.
 
 We appreciate thoughtful contributions that improve patient safety *and*
