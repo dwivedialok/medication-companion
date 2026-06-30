@@ -77,10 +77,10 @@ representative at an online or offline event.
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the project maintainers:
 
-- **Preferred:** [Open a GitHub Issue](https://github.com/3amwave/medication-companion/issues/new)
+- **Preferred:** [Open a GitHub Issue](https://github.com/dwivedialok/medication-companion/issues/new)
   with the title `[Code of Conduct]` and ask for a private follow-up. **Do not**
   include identifying details about the incident in the public issue body.
-- **Alternative:** Contact [@3amwave](https://github.com/3amwave) via GitHub
+- **Alternative:** Contact [@dwivedialok](https://github.com/dwivedialok) via GitHub
   private message.
 
 All complaints will be reviewed and investigated promptly and fairly.

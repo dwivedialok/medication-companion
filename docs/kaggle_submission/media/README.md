@@ -17,7 +17,7 @@ Recommended images for the Kaggle Writeup Media Gallery, mapped to course days a
 | `01_smoke_prescription.png` | Demo | Deterministic test Rx (Ecosprin, Nise, Warf, Flagyl) |
 | `04_cover_result_hi.png` | **Day 5** / Agents for Good | Hindi result + audio — accessibility |
 | `05_result_screen_en.png` | Demo | English result with interaction cards |
-| `eValCustomMetrics.jpg` | **Day 4** | LLM-as-Judge scores: `drug_safety_score` 10/10, `patient_clarity_score` 10/10 |
+| `eValCustomMetrics.jpg` | **Day 4** | LLM-as-Judge scores: `drug_safety_score` 10/10, `patient_clarity_score` 10/10. Full judge reports: `../../artifacts/grade_results/results_20260623_212101.html` and `results_20260625_000749.html` |
 
 ## Optional (strong additions)
 

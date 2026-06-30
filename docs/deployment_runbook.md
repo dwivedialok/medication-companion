@@ -11,10 +11,10 @@ The deploy stack is split across four tools:
 | Layer | Tool | Source of truth |
 |-------|------|-----------------|
 | IAM, buckets, Cloud Run skeleton, Artifact Registry, GitHub WIF | Terraform | [`deployment/terraform/`](../deployment/terraform/) |
-| Agent Runtime (ADK pipeline) | `agents-cli deploy` | `deployment_metadata.json` |
+| Agent Runtime (ADK pipeline) | `agents-cli deploy` | `deployment_metadata.json` (local; see `deployment_metadata.json.example`) |
 | Auth broker image + revision | `make deploy-auth-broker` (shell + gcloud) | `deploy/auth_broker/deploy.sh` |
 | Prescription worker (Pub/Sub push) | `make deploy-prescription-worker` | `deploy/workers/deploy.sh` |
-| Flutter PWA | `firebase deploy --only hosting` | `firebase.json` |
+| Flutter PWA + Firestore rules | `firebase deploy --only hosting,firestore:rules` | `firebase.json`, `deploy/firestore.rules` |
 
 ## §0 Prerequisites
 
@@ -37,7 +37,7 @@ For a brand-new GCP project (e.g. `medication-companion-prod`).
 
 1. **Create + bill the project** (Console or `gcloud projects create`, link a billing account).
 2. **Enable Firebase** on the project (Firebase Console → Add project → reuse GCP project). Turn on Email/Password auth.
-3. **Enable Firestore** (Firebase Console → Firestore → Create database): **Native mode**, database ID **`(default)`**, location **`us-central1`**. Default private rules (no client read/write) are correct — job state is backend-only; Flutter polls `GET /jobs/{id}`.
+3. **Enable Firestore** (Firebase Console → Firestore → Create database): **Native mode**, database ID **`(default)`**, location **`us-central1`**. Deploy deny-all rules from [`deploy/firestore.rules`](../deploy/firestore.rules) — job state is backend-only; Flutter polls `GET /jobs/{id}` over the auth broker.
 4. **Generate Flutter Firebase config** for this env:
    ```bash
    cd frontend && flutterfire configure --project=$GCP_PROJECT
@@ -130,9 +130,9 @@ make infra-apply GCP_PROJECT=$GCP_PROJECT
 # Pub/Sub, worker processes, client polls GET /jobs/{id}.
 make deploy-async-backend GCP_PROJECT=$GCP_PROJECT GCP_REGION=$GCP_REGION
 
-# Firestore composite indexes (required for History list query).
-# Reads firestore.indexes.json — idempotent, safe to re-run.
-firebase deploy --only firestore:indexes --project $GCP_PROJECT
+# Firestore rules + composite indexes (required for History list query).
+# Reads deploy/firestore.rules and firestore.indexes.json — idempotent, safe to re-run.
+firebase deploy --only firestore:rules,firestore:indexes --project $GCP_PROJECT
 ```
 
 `deploy-async-backend` runs `deploy-auth-broker` then `deploy-prescription-worker`.

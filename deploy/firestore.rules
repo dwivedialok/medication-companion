@@ -1,1 +1,17 @@
-# TODO: Firestore security rules
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // v1: Flutter polls the auth broker over HTTP; job state is written via
+    // Admin SDK only. Deny all direct client Firestore access.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // v2 (future Flutter listener): enable per-patient reads only.
+    // match /jobs/{jobId} {
+    //   allow read: if request.auth != null
+    //     && request.auth.uid == resource.data.patient_id;
+    //   allow write: if false;
+    // }
+  }
+}

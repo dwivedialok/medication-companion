@@ -9,7 +9,7 @@ Complete these steps in the Kaggle Writeup editor. All content is prepared in th
 | **Title** | Medication Companion — Cross-Visit Prescription Safety for Patients in India |
 | **Subtitle** | A five-agent Google ADK pipeline that reads prescriptions, resolves Indian brand names, checks drug interactions across doctor visits, and explains findings in regional languages with audio. |
 | **Track** | Agents for Good |
-| **Project Link** | https://github.com/3amwave/medication-companion |
+| **Project Link** | https://github.com/dwivedialok/medication-companion |
 | **Body** | Copy from [`WRITEUP.md`](WRITEUP.md) (paste into Kaggle editor; verify ≤2,500 words) |
 
 ## Media Gallery (required)
@@ -35,7 +35,7 @@ Upload from [`media/`](media/):
 
 | Resource | URL |
 |----------|-----|
-| GitHub (primary Project Link) | https://github.com/3amwave/medication-companion |
+| GitHub (primary Project Link) | https://github.com/dwivedialok/medication-companion |
 | Kaggle notebook | `__PASTE_AFTER_PUBLISHING__` — follow [`publish_notebook.md`](publish_notebook.md) |
 | Live PWA | https://medication-companion-dev.web.app |
 

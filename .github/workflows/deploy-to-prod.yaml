@@ -109,7 +109,7 @@ jobs:
 
       - name: Deploy Flutter to Firebase Hosting
         run: |
-          firebase deploy --only hosting --project ${{ vars.PROD_PROJECT_ID }} --non-interactive
+          firebase deploy --only hosting,firestore:rules --project ${{ vars.PROD_PROJECT_ID }} --non-interactive
 
       - name: Grant Firebase Hosting invoker on auth broker
         env:

@@ -124,7 +124,7 @@ Upload the recorded video to YouTube (public or unlisted) and paste the URL into
 - Screenshot of `specs/pipeline.feature` cross-visit scenario
 
 **On screen (links):**
-- GitHub: https://github.com/3amwave/medication-companion
+- GitHub: https://github.com/dwivedialok/medication-companion
 - Live demo: https://medication-companion-dev.web.app
 - Kaggle notebook: *(paste URL after publishing)*
 - Demo login: kaggle-demo@medication-companion.dev
