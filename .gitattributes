@@ -1,0 +1,4 @@
+# Demo notebooks should not dominate GitHub language stats
+# (Linguist counts file bytes; committed outputs inflate Jupyter %).
+notebooks/**/*.ipynb linguist-documentation
+*.ipynb linguist-documentation
