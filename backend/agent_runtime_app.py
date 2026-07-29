@@ -58,6 +58,17 @@ class AgentEngineApp(AdkApp):
         return self
 
 
+# AdkApp.__init__ reads initializer.global_config.project, which falls back to
+# ADC when unset. Seed a project before construction so imports succeed in CI
+# and local tests without credentials. Production sets GOOGLE_CLOUD_PROJECT.
+_project = (
+    os.environ.get("GOOGLE_CLOUD_PROJECT")
+    or os.environ.get("GCP_PROJECT")
+    or os.environ.get("GCLOUD_PROJECT")
+    or "local-dev"
+)
+vertexai.init(project=_project)
+
 logs_bucket_name = os.environ.get("LOGS_BUCKET_NAME")
 agent_runtime = AgentEngineApp(
     app=adk_app,
