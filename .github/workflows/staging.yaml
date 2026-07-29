@@ -14,20 +14,31 @@
 
 name: Deploy to Staging
 
+# Auto-deploy on push to main is disabled until GitHub Actions has WIF secrets
+# and vars (GCP_PROJECT_NUMBER, WIF_POOL_ID, WIF_PROVIDER_ID, GCP_SERVICE_ACCOUNT,
+# CICD_PROJECT_ID, STAGING_PROJECT_ID, …). Without them, google-github-actions/auth
+# fails with an empty audience (projects//.../providers/).
+#
+# Offline checks: .github/workflows/ci.yml (unit tests, Flutter, shellcheck).
+# Manual deploy when secrets are ready: Actions → Deploy to Staging → Run workflow.
+# See docs/deployment_runbook.md.
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'backend/**'
-      - 'data_ingestion/**'
-      - 'tests/**'
-      - 'deployment/**'
-      - 'frontend/**'
-      - 'firebase.json'
-      - '.firebaserc'
-      - 'deploy/auth_broker/**'
-      - 'uv.lock'
+  workflow_dispatch:
+
+# Original auto-trigger (restore when WIF is configured):
+# on:
+#   push:
+#     branches: [main]
+#     paths:
+#       - 'backend/**'
+#       - 'data_ingestion/**'
+#       - 'tests/**'
+#       - 'deployment/**'
+#       - 'frontend/**'
+#       - 'firebase.json'
+#       - '.firebaserc'
+#       - 'deploy/auth_broker/**'
+#       - 'uv.lock'
 
 jobs:
   deploy_and_test_staging:
