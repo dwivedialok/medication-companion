@@ -28,13 +28,15 @@ jobs:
         # Deps live in repo-root pyproject.toml + uv.lock (no backend/requirements.txt).
         run: uv sync --locked
 
-      - name: Run tests
+      - name: Run unit tests
         env:
           MEMORY_BACKEND: local
           ENVIRONMENT: development
           GEMINI_MODEL: gemini-3.5-flash
-          # Tests use InMemorySessionService — no GCP credentials needed
-        run: uv run pytest tests/unit tests/integration -v --tb=short
+          # Offline only — no Gemini / Vertex secrets in GitHub Actions.
+          # Live integration tests (tests/integration, pytest -m live) run locally
+          # or in staging with ADC; see docs/smoke_test_cheatsheet.md.
+        run: uv run pytest tests/unit -v --tb=short
 
   test-frontend:
     name: Frontend — Flutter analyze + test
